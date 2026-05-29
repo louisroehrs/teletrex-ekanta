@@ -58,6 +58,7 @@ lerna-debug.log*
 
 **/node_modules
 dist
+distbackup
 dist-ssr
 *.local
 

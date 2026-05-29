@@ -1,17 +1,58 @@
 {
   "name": "teletrex-ekanta",
-  "build": {
-    "appId" : "teletrex.ekanta",
-    "productName" : "Ekanta"
-  },
   "version": "1.0.0",
-  "description": "WebGPU-accelerated LLM chat for Intel Mac",
+  "description": "WebGPU-accelerated local LLM chat by TeleTrex",
   "main": "main.js",
   "scripts": {
-    "start": "electron ."
+    "start": "electron .",
+    "dist": "PATH=.venv/bin:$PATH electron-builder --mac",
+    "dist:dmg": "PATH=.venv/bin:$PATH electron-builder --mac dmg",
+    "dist:dir": "PATH=.venv/bin:$PATH electron-builder --mac dir"
+  },
+  "build": {
+    "appId": "com.teletrex.ekanta",
+    "productName": "Ekanta",
+    "copyright": "Copyright © 2026 TeleTrex",
+    "mac": {
+      "category": "public.app-category.productivity",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ],
+      "minimumSystemVersion": "12.0"
+    },
+    "dmg": {
+      "title": "Ekanta by TeleTrex",
+      "window": {
+        "width": 540,
+        "height": 380
+      }
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "app/**/*",
+      "node_modules/**/*"
+    ],
+    "directories": {
+      "output": "dist"
+    }
   },
   "devDependencies": {
-    "electron": "^28.3.3"
+    "electron": "^28.3.3",
+    "electron-builder": "^25.1.8"
   },
   "engines": {
     "node": ">=18"

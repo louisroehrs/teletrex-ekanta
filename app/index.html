@@ -5,13 +5,16 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta http-equiv="Cross-Origin-Opener-Policy" content="same-origin" />
   <meta http-equiv="Cross-Origin-Embedder-Policy" content="require-corp" />
-  <title>Intel GPU Chat</title>
+  <title>Ekanta — TeleTrex</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <!-- Title bar drag region -->
   <div class="titlebar">
     <div class="titlebar-drag"></div>
+    <div class="titlebar-center">
+      <span class="app-name">Ekanta</span>
+      <span class="app-brand">by TeleTrex</span>
+    </div>
     <div class="titlebar-info">
       <span class="gpu-badge" id="gpuBadge">
         <span class="gpu-dot"></span>
@@ -21,36 +24,125 @@
   </div>
 
   <div class="layout">
-    <!-- Sidebar: model selection -->
+
+    <!-- Conversations panel -->
+    <aside class="conv-panel">
+      <div class="conv-header">
+        <button class="btn-new-chat" id="btnNewChat">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+          </svg>
+          New Chat
+        </button>
+      </div>
+      <div class="conv-list" id="convList"></div>
+    </aside>
+
+    <!-- Model + Settings sidebar -->
     <aside class="sidebar">
-      <div class="sidebar-header">
-        <h2>Models</h2>
-        <span class="vram-hint">8 GB VRAM</span>
+      <div class="sidebar-tabs">
+        <button class="sidebar-tab active" id="tabBtnModels">Models</button>
+        <button class="sidebar-tab" id="tabBtnSettings">Settings</button>
       </div>
 
-      <div class="model-list" id="modelList">
-        <!-- Injected by app.js -->
-      </div>
-
-      <div class="sidebar-footer">
-        <button class="btn-load" id="btnLoad" disabled>Load Model</button>
-        <div class="progress-wrap" id="progressWrap" style="display:none">
-          <div class="progress-bar-track">
-            <div class="progress-bar-fill" id="progressFill"></div>
+      <!-- Models pane -->
+      <div class="tab-pane" id="paneModels">
+        <div class="sidebar-sub-header">
+          <span class="sidebar-sub-title">Select a model</span>
+          <span class="vram-hint" id="vramHint">8 GB VRAM</span>
+        </div>
+        <div class="model-list" id="modelList"></div>
+        <div class="sidebar-footer">
+          <button class="btn-load" id="btnLoad" disabled>Load Model</button>
+          <div class="progress-wrap" id="progressWrap" style="display:none">
+            <div class="progress-bar-track">
+              <div class="progress-bar-fill" id="progressFill"></div>
+            </div>
+            <span class="progress-text" id="progressText">Initializing…</span>
           </div>
-          <span class="progress-text" id="progressText">Initializing…</span>
+        </div>
+      </div>
+
+      <!-- Settings pane -->
+      <div class="tab-pane hidden" id="paneSettings">
+        <div class="settings-scroll">
+
+          <div class="settings-section">
+            <label class="settings-label" for="systemPromptInput">System Prompt</label>
+            <p class="settings-hint">Instructions prepended to every new conversation</p>
+            <textarea
+              id="systemPromptInput"
+              class="settings-textarea"
+              placeholder="e.g. You are a helpful assistant. Be concise and clear."
+              rows="5"
+            ></textarea>
+          </div>
+
+          <div class="settings-section">
+            <div class="settings-label-row">
+              <label class="settings-label" for="tempSlider">Temperature</label>
+              <span class="settings-value" id="tempValue">0.7</span>
+            </div>
+            <p class="settings-hint">Higher = more creative · Lower = more focused</p>
+            <input type="range" id="tempSlider" class="settings-slider"
+              min="0" max="1" step="0.05" value="0.7" />
+            <div class="slider-labels">
+              <span>Precise</span>
+              <span>Creative</span>
+            </div>
+          </div>
+
+          <div class="settings-section">
+            <div class="settings-label-row">
+              <label class="settings-label" for="maxTokensSlider">Max Tokens</label>
+              <span class="settings-value" id="maxTokensValue">2048</span>
+            </div>
+            <p class="settings-hint">Maximum response length</p>
+            <input type="range" id="maxTokensSlider" class="settings-slider"
+              min="256" max="4096" step="256" value="2048" />
+            <div class="slider-labels">
+              <span>256</span>
+              <span>4096</span>
+            </div>
+          </div>
+
+          <div class="settings-section">
+            <button class="btn-save-settings" id="btnSaveSettings">Save Settings</button>
+            <p class="settings-saved" id="settingsSaved" style="display:none">Settings saved</p>
+          </div>
+
         </div>
       </div>
     </aside>
 
-    <!-- Main chat area -->
+    <!-- Chat area -->
     <main class="chat-area">
       <div class="messages" id="messages">
         <div class="welcome" id="welcome">
-          <div class="welcome-icon">⚡</div>
-          <h1>Intel GPU Chat</h1>
-          <p>Select a model from the sidebar and click <strong>Load Model</strong> to begin.<br/>
-          Models run entirely on your Mac's GPU via WebGPU — no cloud, no API keys.</p>
+          <div class="welcome-icon-wrap">
+            <svg class="welcome-icon-svg" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="32" cy="32" r="28" stroke="url(#wg1)" stroke-width="1.5" opacity="0.6"/>
+              <circle cx="32" cy="32" r="20" stroke="url(#wg1)" stroke-width="1" opacity="0.4"/>
+              <path d="M22 32 L32 22 L42 32 L32 42 Z" fill="url(#wg2)"/>
+              <defs>
+                <linearGradient id="wg1" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse">
+                  <stop offset="0%" stop-color="#7c6af7"/>
+                  <stop offset="100%" stop-color="#a78bfa"/>
+                </linearGradient>
+                <linearGradient id="wg2" x1="22" y1="22" x2="42" y2="42" gradientUnits="userSpaceOnUse">
+                  <stop offset="0%" stop-color="#7c6af7"/>
+                  <stop offset="100%" stop-color="#c4b5fd"/>
+                </linearGradient>
+              </defs>
+            </svg>
+          </div>
+          <h1 class="welcome-h1">Ekanta</h1>
+          <p class="welcome-brand-line">by TeleTrex</p>
+          <p class="welcome-desc">
+            Select a model from the sidebar and click <strong>Load Model</strong> to begin.<br/>
+            Everything runs locally on your Mac via WebGPU — no cloud, no API keys.
+          </p>
           <div class="welcome-features">
             <div class="feature">
               <span class="feature-icon">🔒</span>
@@ -89,6 +181,7 @@
         </div>
       </div>
     </main>
+
   </div>
 
   <script type="module" src="app.js"></script>
