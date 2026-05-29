@@ -1,0 +1,15 @@
+{
+  "name": "macintelgpu-chat",
+  "version": "1.0.0",
+  "description": "WebGPU-accelerated LLM chat for Intel Mac",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron ."
+  },
+  "devDependencies": {
+    "electron": "^28.3.3"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

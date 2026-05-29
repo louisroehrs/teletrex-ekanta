@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="Cross-Origin-Opener-Policy" content="same-origin" />
+  <meta http-equiv="Cross-Origin-Embedder-Policy" content="require-corp" />
+  <title>Intel GPU Chat</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <!-- Title bar drag region -->
+  <div class="titlebar">
+    <div class="titlebar-drag"></div>
+    <div class="titlebar-info">
+      <span class="gpu-badge" id="gpuBadge">
+        <span class="gpu-dot"></span>
+        <span id="gpuLabel">Detecting GPU…</span>
+      </span>
+    </div>
+  </div>
+
+  <div class="layout">
+    <!-- Sidebar: model selection -->
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <h2>Models</h2>
+        <span class="vram-hint">8 GB VRAM</span>
+      </div>
+
+      <div class="model-list" id="modelList">
+        <!-- Injected by app.js -->
+      </div>
+
+      <div class="sidebar-footer">
+        <button class="btn-load" id="btnLoad" disabled>Load Model</button>
+        <div class="progress-wrap" id="progressWrap" style="display:none">
+          <div class="progress-bar-track">
+            <div class="progress-bar-fill" id="progressFill"></div>
+          </div>
+          <span class="progress-text" id="progressText">Initializing…</span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main chat area -->
+    <main class="chat-area">
+      <div class="messages" id="messages">
+        <div class="welcome" id="welcome">
+          <div class="welcome-icon">⚡</div>
+          <h1>Intel GPU Chat</h1>
+          <p>Select a model from the sidebar and click <strong>Load Model</strong> to begin.<br/>
+          Models run entirely on your Mac's GPU via WebGPU — no cloud, no API keys.</p>
+          <div class="welcome-features">
+            <div class="feature">
+              <span class="feature-icon">🔒</span>
+              <span>100% local &amp; private</span>
+            </div>
+            <div class="feature">
+              <span class="feature-icon">⚡</span>
+              <span>WebGPU accelerated</span>
+            </div>
+            <div class="feature">
+              <span class="feature-icon">💾</span>
+              <span>Models cached locally</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="input-area">
+        <div class="input-wrap">
+          <textarea
+            id="inputBox"
+            placeholder="Select and load a model to start chatting…"
+            rows="1"
+            disabled
+          ></textarea>
+          <button class="btn-send" id="btnSend" disabled>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="22" y1="2" x2="11" y2="13"></line>
+              <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+            </svg>
+          </button>
+        </div>
+        <div class="input-footer">
+          <span id="modelStatus">No model loaded</span>
+          <button class="btn-clear" id="btnClear" disabled>Clear chat</button>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
