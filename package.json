@@ -1,5 +1,9 @@
 {
-  "name": "macintelgpu-chat",
+  "name": "teletrex-ekanta",
+  "build": {
+    "appId" : "teletrex.ekanta",
+    "productName" : "Ekanta"
+  },
   "version": "1.0.0",
   "description": "WebGPU-accelerated LLM chat for Intel Mac",
   "main": "main.js",
