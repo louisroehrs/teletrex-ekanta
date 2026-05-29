@@ -16,6 +16,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   sendServerError:    (data) => ipcRenderer.send('server:inference-error', data),
 
   // ── Server bridge: main → renderer ────────────────────────────────────
-  onServerStarted:          (cb) => ipcRenderer.on('server:started',           (_e, d) => cb(d)),
+  getServerPort:            ()   => ipcRenderer.invoke('server:get-port'),
   onServerInferenceRequest: (cb) => ipcRenderer.on('server:inference-request', (_e, d) => cb(d)),
 });

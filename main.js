@@ -10,7 +10,7 @@ app.commandLine.appendSwitch('use-angle', 'metal');
 app.commandLine.appendSwitch('ignore-gpu-blocklist');
 app.commandLine.appendSwitch('enable-gpu-rasterization');
 
-const SERVER_PORT = 1234;
+const SERVER_PORT = 42069;
 
 // ---------------------------------------------------------------------------
 // Shared state shared between HTTP server and IPC handlers
@@ -134,9 +134,10 @@ function createHttpServer() {
 
   server.listen(SERVER_PORT, '127.0.0.1', () => {
     console.log(`Ekanta API listening on http://127.0.0.1:${SERVER_PORT}`);
-    // Let the renderer know the server port
-    if (mainWindow) mainWindow.webContents.send('server:started', { port: SERVER_PORT });
   });
+
+  // Renderer pulls the port once it's ready
+  ipcMain.handle('server:get-port', () => SERVER_PORT);
 
   server.on('error', (err) => {
     console.error('HTTP server error:', err.message);

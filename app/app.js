@@ -4,19 +4,23 @@ import * as webllm from 'https://esm.run/@mlc-ai/web-llm';
 // Model catalogue — all fit within 8 GB VRAM (Q4F16 quantization)
 // ---------------------------------------------------------------------------
 const MODELS = [
-  { id: 'Qwen2.5-0.5B-Instruct-q4f16_1-MLC',            name: 'Qwen 2.5 · 0.5B',     params: '0.5B', vram: 0.4, tag: 'Tiny',      tagColor: 'tag-blue',   desc: 'Alibaba — ultra-light, instant replies' },
-  { id: 'SmolLM2-1.7B-Instruct-q4f16_1-MLC',            name: 'SmolLM2 · 1.7B',       params: '1.7B', vram: 1.1, tag: 'Fast',      tagColor: 'tag-blue',   desc: 'HuggingFace — surprisingly capable small model' },
+
+
   { id: 'DeepSeek-R1-Distill-Qwen-1.5B-q4f16_1-MLC',    name: 'DeepSeek-R1 · 1.5B',   params: '1.5B', vram: 1.0, tag: 'Reasoning', tagColor: 'tag-purple', desc: 'DeepSeek — distilled reasoning model' },
+  { id: 'DeepSeek-R1-Distill-Qwen-7B-q4f16_1-MLC',      name: 'DeepSeek-R1 · 7B',      params: '7B',   vram: 4.5, tag: 'Reasoning', tagColor: 'tag-purple', desc: 'Chain-of-thought reasoning distilled' },
+  { id: 'DeepSeek-R1-Distill-Llama-8B-q4f16_1-MLC',     name: 'DeepSeek-R1 · 8B',      params: '8B',   vram: 5.0, tag: 'Reasoning', tagColor: 'tag-purple', desc: 'Strongest local reasoning model under 8 GB' },
   { id: 'gemma-2-2b-it-q4f16_1-MLC',                    name: 'Gemma 2 · 2B',          params: '2B',   vram: 1.5, tag: 'Google',    tagColor: 'tag-green',  desc: 'Google — efficient instruction-tuned' },
+  { id: 'gemma-2-9b-it-q4f16_1-MLC',                    name: 'Gemma 2 · 9B',           params: '9B',   vram: 5.5, tag: 'Google',    tagColor: 'tag-green',  desc: 'Google — top quality at 9B parameters' },
   { id: 'Llama-3.2-3B-Instruct-q4f16_1-MLC',            name: 'Llama 3.2 · 3B',        params: '3B',   vram: 2.0, tag: 'Meta',      tagColor: 'tag-orange', desc: 'Meta — fast general-purpose assistant' },
+  { id: 'Llama-3.1-8B-Instruct-q4f16_1-MLC',            name: 'Llama 3.1 · 8B',        params: '8B',   vram: 5.0, tag: 'Meta',      tagColor: 'tag-orange', desc: 'Meta flagship — balanced quality & speed' },
+  { id: 'Mistral-7B-Instruct-v0.3-q4f16_1-MLC',         name: 'Mistral 7B v0.3',        params: '7B',   vram: 4.5, tag: '★ Popular', tagColor: 'tag-gold',   desc: 'Mistral AI — excellent 7B benchmark' },
   { id: 'Phi-3.5-mini-instruct-q4f16_1-MLC',            name: 'Phi 3.5 Mini',           params: '3.8B', vram: 2.5, tag: 'Microsoft', tagColor: 'tag-blue',   desc: 'Microsoft — punches above its weight' },
   { id: 'Qwen2.5-3B-Instruct-q4f16_1-MLC',              name: 'Qwen 2.5 · 3B',         params: '3B',   vram: 2.0, tag: 'Alibaba',   tagColor: 'tag-green',  desc: 'Strong multilingual & coding support' },
-  { id: 'Mistral-7B-Instruct-v0.3-q4f16_1-MLC',         name: 'Mistral 7B v0.3',        params: '7B',   vram: 4.5, tag: '★ Popular', tagColor: 'tag-gold',   desc: 'Mistral AI — excellent 7B benchmark' },
+  { id: 'Qwen2.5-0.5B-Instruct-q4f16_1-MLC',            name: 'Qwen 2.5 · 0.5B',     params: '0.5B', vram: 0.4, tag: 'Tiny',      tagColor: 'tag-blue',   desc: 'Alibaba — ultra-light, instant replies' },
   { id: 'Qwen2.5-7B-Instruct-q4f16_1-MLC',              name: 'Qwen 2.5 · 7B',         params: '7B',   vram: 4.5, tag: 'Coding',    tagColor: 'tag-green',  desc: 'Best-in-class coding & reasoning at 7B' },
-  { id: 'DeepSeek-R1-Distill-Qwen-7B-q4f16_1-MLC',      name: 'DeepSeek-R1 · 7B',      params: '7B',   vram: 4.5, tag: 'Reasoning', tagColor: 'tag-purple', desc: 'Chain-of-thought reasoning distilled' },
-  { id: 'Llama-3.1-8B-Instruct-q4f16_1-MLC',            name: 'Llama 3.1 · 8B',        params: '8B',   vram: 5.0, tag: 'Meta',      tagColor: 'tag-orange', desc: 'Meta flagship — balanced quality & speed' },
-  { id: 'DeepSeek-R1-Distill-Llama-8B-q4f16_1-MLC',     name: 'DeepSeek-R1 · 8B',      params: '8B',   vram: 5.0, tag: 'Reasoning', tagColor: 'tag-purple', desc: 'Strongest local reasoning model under 8 GB' },
-  { id: 'gemma-2-9b-it-q4f16_1-MLC',                    name: 'Gemma 2 · 9B',           params: '9B',   vram: 5.5, tag: 'Google',    tagColor: 'tag-green',  desc: 'Google — top quality at 9B parameters' },
+  { id: 'Qwen3-8B-q4f16_1-MLC',                         name: 'Qwen 3 · 8B',         params: '8B',   vram: 5.3 , tag: 'General',    tagColor: 'tag-green',  desc: 'Best-in-class reasoning at 8B' },
+  { id: 'Qwen3.5-9B-q4f16_1-MLC',                       name: 'Qwen 3.5 · 9B',         params: '9B',   vram: 6.4 , tag: 'General',    tagColor: 'tag-green',  desc: 'Bigger and slower than Qwen 3' },
+  { id: 'SmolLM2-1.7B-Instruct-q4f16_1-MLC',            name: 'SmolLM2 · 1.7B',       params: '1.7B', vram: 1.1, tag: 'Fast',      tagColor: 'tag-blue',   desc: 'HuggingFace — surprisingly capable small model' },
 ];
 
 // ---------------------------------------------------------------------------
@@ -696,7 +700,7 @@ btnSaveSettings.addEventListener('click', () => {
 
   // Wire up server IPC
   if (window.electronAPI) {
-    window.electronAPI.onServerStarted(({ port }) => updateServerBadge(port));
+    window.electronAPI.getServerPort().then((port) => updateServerBadge(port));
     window.electronAPI.onServerInferenceRequest((data) => handleServerInference(data));
   }
 })();
