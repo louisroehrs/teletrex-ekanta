@@ -1,19 +1,22 @@
 {
-  "name": "teletrex-ekanta",
+  "name": "TeleTrex Ekanta",
+  "productName": "TeleTrex Ekanta",
+  "author" : "Louis Roehrs"
   "version": "1.0.0",
   "description": "WebGPU-accelerated local LLM chat by TeleTrex",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "dist": "PATH=.venv/bin:$PATH electron-builder --mac",
-    "dist:dmg": "PATH=.venv/bin:$PATH electron-builder --mac dmg",
-    "dist:dir": "PATH=.venv/bin:$PATH electron-builder --mac dir"
+    "dist": "PATH=$PWD/.venv/bin:$PATH electron-builder --mac",
+    "dist:dmg": "PATH=$PWD/.venv/bin:$PATH electron-builder --mac dmg",
+    "dist:dir": "PATH=$PWD/.venv/bin:$PATH electron-builder --mac dir"
   },
   "build": {
     "appId": "com.teletrex.ekanta",
     "productName": "Ekanta",
     "copyright": "Copyright © 2026 TeleTrex",
     "mac": {
+      "icon": "assets/icon.icns",
       "category": "public.app-category.productivity",
       "target": [
         {
@@ -34,7 +37,7 @@
       "minimumSystemVersion": "12.0"
     },
     "dmg": {
-      "title": "Ekanta by TeleTrex",
+      "title": "TeleTrex Ekanta",
       "window": {
         "width": 540,
         "height": 380
