@@ -84,10 +84,11 @@ function setActiveConversation(id) {
 // ---------------------------------------------------------------------------
 // Engine state
 // ---------------------------------------------------------------------------
-let engine         = null;
-let loadedModelId  = null;
-let selectedModel  = null;
-let isGenerating   = false;
+let engine           = null;
+let loadedModelId    = null;
+let selectedModel    = null;
+let isGenerating     = false;
+let serverGenerating = false;  // true while handling an HTTP server request
 
 // ---------------------------------------------------------------------------
 // DOM refs
@@ -227,6 +228,7 @@ async function loadModel() {
     try { await engine.unload(); } catch (_) {}
     engine = null;
     loadedModelId = null;
+    window.electronAPI?.sendModelStatus({ loaded: false, modelId: null, modelName: null });
   }
 
   try {
@@ -241,6 +243,7 @@ async function loadModel() {
     });
 
     loadedModelId = selectedModel.id;
+    window.electronAPI?.sendModelStatus({ loaded: true, modelId: selectedModel.id, modelName: selectedModel.name });
     progressFill.style.width = '100%';
     progressText.textContent = 'Ready';
 
@@ -353,7 +356,7 @@ function loadConversationMessages() {
 // Chat
 // ---------------------------------------------------------------------------
 async function sendMessage() {
-  if (!engine || isGenerating) return;
+  if (!engine || isGenerating || serverGenerating) return;
   const text = inputBox.value.trim();
   if (!text) return;
 
@@ -460,21 +463,7 @@ function showWelcome() {
     w.className = 'welcome';
     w.innerHTML = `
       <div class="welcome-icon-wrap">
-        <svg class="welcome-icon-svg" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <circle cx="32" cy="32" r="28" stroke="url(#wg1b)" stroke-width="1.5" opacity="0.6"/>
-          <circle cx="32" cy="32" r="20" stroke="url(#wg1b)" stroke-width="1" opacity="0.4"/>
-          <path d="M22 32 L32 22 L42 32 L32 42 Z" fill="url(#wg2b)"/>
-          <defs>
-            <linearGradient id="wg1b" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse">
-              <stop offset="0%" stop-color="#7c6af7"/>
-              <stop offset="100%" stop-color="#a78bfa"/>
-            </linearGradient>
-            <linearGradient id="wg2b" x1="22" y1="22" x2="42" y2="42" gradientUnits="userSpaceOnUse">
-              <stop offset="0%" stop-color="#7c6af7"/>
-              <stop offset="100%" stop-color="#c4b5fd"/>
-            </linearGradient>
-          </defs>
-        </svg>
+        <img class="welcome-icon-img" src="../assets/icon.iconset/icon_512x512.png" alt="Ekanta icon" />
       </div>
       <h1 class="welcome-h1">Ekanta</h1>
       <p class="welcome-brand-line">by TeleTrex</p>
@@ -550,6 +539,69 @@ function formatDate(ts) {
     return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   }
   return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+}
+
+// ---------------------------------------------------------------------------
+// HTTP server inference (called via IPC from main process)
+// ---------------------------------------------------------------------------
+async function handleServerInference({ requestId, messages, temperature, maxTokens }) {
+  if (!engine) {
+    window.electronAPI.sendServerError({ requestId, error: 'No model loaded' });
+    return;
+  }
+  if (isGenerating || serverGenerating) {
+    window.electronAPI.sendServerError({ requestId, error: 'Engine busy — try again shortly' });
+    return;
+  }
+
+  serverGenerating = true;
+  btnSend.disabled = true;
+  inputBox.disabled = true;
+
+  let promptTokens     = 0;
+  let completionTokens = 0;
+
+  try {
+    const stream = await engine.chat.completions.create({
+      messages,
+      stream: true,
+      temperature,
+      max_tokens: maxTokens,
+    });
+
+    for await (const chunk of stream) {
+      const content = chunk.choices[0]?.delta?.content ?? '';
+      if (content) {
+        window.electronAPI.sendServerChunk({ requestId, content });
+        completionTokens++;
+      }
+      if (chunk.usage) {
+        promptTokens     = chunk.usage.prompt_tokens     ?? promptTokens;
+        completionTokens = chunk.usage.completion_tokens ?? completionTokens;
+      }
+    }
+
+    window.electronAPI.sendServerDone({ requestId, promptTokens, completionTokens });
+  } catch (err) {
+    console.error('Server inference error:', err);
+    window.electronAPI.sendServerError({ requestId, error: err.message });
+  } finally {
+    serverGenerating = false;
+    if (engine) {
+      btnSend.disabled = false;
+      inputBox.disabled = false;
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Server status badge in titlebar
+// ---------------------------------------------------------------------------
+function updateServerBadge(port) {
+  const badge = document.getElementById('serverBadge');
+  if (!badge) return;
+  badge.querySelector('.server-port').textContent = `:${port}`;
+  badge.classList.add('server-running');
 }
 
 // ---------------------------------------------------------------------------
@@ -641,4 +693,10 @@ btnSaveSettings.addEventListener('click', () => {
 
   const ok = await detectGPU();
   if (!ok) btnLoad.title = 'WebGPU not available';
+
+  // Wire up server IPC
+  if (window.electronAPI) {
+    window.electronAPI.onServerStarted(({ port }) => updateServerBadge(port));
+    window.electronAPI.onServerInferenceRequest((data) => handleServerInference(data));
+  }
 })();

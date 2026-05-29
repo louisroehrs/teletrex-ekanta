@@ -1,7 +1,6 @@
 {
-  "name": "TeleTrex Ekanta",
-  "productName": "TeleTrex Ekanta",
-  "author" : "Louis Roehrs"
+  "name": "teletrex-ekanta",
+  "author": "Louis Roehrs",
   "version": "1.0.0",
   "description": "WebGPU-accelerated local LLM chat by TeleTrex",
   "main": "main.js",
@@ -47,6 +46,7 @@
       "main.js",
       "preload.js",
       "app/**/*",
+      "assets/**/*",
       "node_modules/**/*"
     ],
     "directories": {

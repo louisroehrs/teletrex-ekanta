@@ -16,6 +16,11 @@
       <span class="app-brand">by TeleTrex</span>
     </div>
     <div class="titlebar-info">
+      <span class="server-badge" id="serverBadge" title="OpenAI-compatible API">
+        <span class="server-dot"></span>
+        <span>API</span>
+        <span class="server-port">:—</span>
+      </span>
       <span class="gpu-badge" id="gpuBadge">
         <span class="gpu-dot"></span>
         <span id="gpuLabel">Detecting GPU…</span>
@@ -121,21 +126,7 @@
       <div class="messages" id="messages">
         <div class="welcome" id="welcome">
           <div class="welcome-icon-wrap">
-            <svg class="welcome-icon-svg" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <circle cx="32" cy="32" r="28" stroke="url(#wg1)" stroke-width="1.5" opacity="0.6"/>
-              <circle cx="32" cy="32" r="20" stroke="url(#wg1)" stroke-width="1" opacity="0.4"/>
-              <path d="M22 32 L32 22 L42 32 L32 42 Z" fill="url(#wg2)"/>
-              <defs>
-                <linearGradient id="wg1" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse">
-                  <stop offset="0%" stop-color="#7c6af7"/>
-                  <stop offset="100%" stop-color="#a78bfa"/>
-                </linearGradient>
-                <linearGradient id="wg2" x1="22" y1="22" x2="42" y2="42" gradientUnits="userSpaceOnUse">
-                  <stop offset="0%" stop-color="#7c6af7"/>
-                  <stop offset="100%" stop-color="#c4b5fd"/>
-                </linearGradient>
-              </defs>
-            </svg>
+            <img class="welcome-icon-img" src="../assets/icon.iconset/icon_512x512.png" alt="Ekanta icon" />
           </div>
           <h1 class="welcome-h1">Ekanta</h1>
           <p class="welcome-brand-line">by TeleTrex</p>

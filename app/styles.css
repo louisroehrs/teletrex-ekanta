@@ -112,6 +112,43 @@ html, body { height: 100%; overflow: hidden; }
 .gpu-badge.gpu-error .gpu-dot  { background: var(--error); }
 .gpu-badge.gpu-error           { color: var(--error); border-color: rgba(248,113,113,0.3); }
 
+.server-badge {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: 20px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  font-size: 11px;
+  color: var(--text-muted);
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.server-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.server-port { color: var(--text-muted); }
+
+.server-badge.server-running {
+  border-color: rgba(124, 106, 247, 0.35);
+  color: var(--text-dim);
+}
+
+.server-badge.server-running .server-dot {
+  background: var(--accent);
+  box-shadow: 0 0 6px var(--accent);
+}
+
+.server-badge.server-running .server-port { color: var(--accent); }
+
 /* ── Root layout ─────────────────────────────────────────────────────────── */
 .layout {
   display: flex;
@@ -657,10 +694,11 @@ html, body { height: 100%; overflow: hidden; }
   margin-bottom: 20px;
 }
 
-.welcome-icon-svg {
-  width: 64px;
-  height: 64px;
-  filter: drop-shadow(0 0 24px rgba(124, 106, 247, 0.5));
+.welcome-icon-img {
+  width: 96px;
+  height: 96px;
+  border-radius: 22px;
+  filter: drop-shadow(0 4px 24px rgba(124, 106, 247, 0.45));
 }
 
 .welcome-h1 {
