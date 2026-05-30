@@ -37,14 +37,18 @@ ipcMain.on('server:inference-chunk', (_event, { requestId, content }) => {
   if (!req) return;
 
   if (req.isStream) {
-    const chunk = {
-      id: requestId,
-      object: 'chat.completion.chunk',
-      created: req.created,
-      model: modelState.modelId ?? 'unknown',
-      choices: [{ index: 0, delta: { content }, finish_reason: null }],
-    };
-    req.res.write(`data: ${JSON.stringify(chunk)}\n\n`);
+    if (req.format === 'anthropic') {
+      writeAnthropicEvent(req.res, 'content_block_delta', {
+        type: 'content_block_delta', index: 0,
+        delta: { type: 'text_delta', text: content },
+      });
+    } else {
+      req.res.write(`data: ${JSON.stringify({
+        id: requestId, object: 'chat.completion.chunk', created: req.created,
+        model: modelState.modelId ?? 'unknown',
+        choices: [{ index: 0, delta: { content }, finish_reason: null }],
+      })}\n\n`);
+    }
   } else {
     req.buffer += content;
   }
@@ -56,37 +60,43 @@ ipcMain.on('server:inference-done', (_event, { requestId, promptTokens, completi
   if (!req) return;
   pending.delete(requestId);
 
-  const usage = {
-    prompt_tokens:     promptTokens     ?? 0,
-    completion_tokens: completionTokens ?? 0,
-    total_tokens:      (promptTokens ?? 0) + (completionTokens ?? 0),
-  };
+  const inTok  = promptTokens     ?? 0;
+  const outTok = completionTokens ?? 0;
+  const model  = modelState.modelId ?? 'unknown';
 
-  if (req.isStream) {
-    const finalChunk = {
-      id: requestId,
-      object: 'chat.completion.chunk',
-      created: req.created,
-      model: modelState.modelId ?? 'unknown',
-      choices: [{ index: 0, delta: {}, finish_reason: 'stop' }],
-    };
-    req.res.write(`data: ${JSON.stringify(finalChunk)}\n\n`);
-    req.res.write('data: [DONE]\n\n');
-    req.res.end();
+  if (req.format === 'anthropic') {
+    if (req.isStream) {
+      writeAnthropicEvent(req.res, 'content_block_stop',  { type: 'content_block_stop', index: 0 });
+      writeAnthropicEvent(req.res, 'message_delta', {
+        type: 'message_delta',
+        delta: { stop_reason: 'end_turn', stop_sequence: null },
+        usage: { output_tokens: outTok },
+      });
+      writeAnthropicEvent(req.res, 'message_stop', { type: 'message_stop' });
+      req.res.end();
+    } else {
+      sendJson(req.res, 200, {
+        id: requestId, type: 'message', role: 'assistant', model,
+        content: [{ type: 'text', text: req.buffer }],
+        stop_reason: 'end_turn', stop_sequence: null,
+        usage: { input_tokens: inTok, output_tokens: outTok },
+      });
+    }
   } else {
-    const body = {
-      id: requestId,
-      object: 'chat.completion',
-      created: req.created,
-      model: modelState.modelId ?? 'unknown',
-      choices: [{
-        index: 0,
-        message: { role: 'assistant', content: req.buffer },
-        finish_reason: 'stop',
-      }],
-      usage,
-    };
-    sendJson(req.res, 200, body);
+    if (req.isStream) {
+      req.res.write(`data: ${JSON.stringify({
+        id: requestId, object: 'chat.completion.chunk', created: req.created, model,
+        choices: [{ index: 0, delta: {}, finish_reason: 'stop' }],
+      })}\n\n`);
+      req.res.write('data: [DONE]\n\n');
+      req.res.end();
+    } else {
+      sendJson(req.res, 200, {
+        id: requestId, object: 'chat.completion', created: req.created, model,
+        choices: [{ index: 0, message: { role: 'assistant', content: req.buffer }, finish_reason: 'stop' }],
+        usage: { prompt_tokens: inTok, completion_tokens: outTok, total_tokens: inTok + outTok },
+      });
+    }
   }
 });
 
@@ -96,12 +106,17 @@ ipcMain.on('server:inference-error', (_event, { requestId, error }) => {
   if (!req) return;
   pending.delete(requestId);
   if (req.isStream) {
-    req.res.write(`data: ${JSON.stringify({ error })}\n\n`);
+    if (req.format === 'anthropic') writeAnthropicEvent(req.res, 'error', { type: 'error', error: { type: 'server_error', message: error } });
+    else req.res.write(`data: ${JSON.stringify({ error })}\n\n`);
     req.res.end();
   } else {
     sendJson(req.res, 500, { error: { message: error, type: 'server_error' } });
   }
 });
+
+function writeAnthropicEvent(res, event, data) {
+  res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+}
 
 // ---------------------------------------------------------------------------
 // HTTP server — OpenAI-compatible endpoints
@@ -123,6 +138,10 @@ function createHttpServer() {
 
     if (req.method === 'POST' && pathname === '/v1/chat/completions') {
       return handleChatCompletions(req, res);
+    }
+
+    if (req.method === 'POST' && pathname === '/v1/messages') {
+      return handleMessages(req, res);
     }
 
     if (pathname === '/') {
