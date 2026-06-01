@@ -13,7 +13,7 @@
   --accent-glow: rgba(124, 106, 247, 0.22);
   --text:        #e8e8f0;
   --text-dim:    #8888a8;
-  --text-muted:  #55556a;
+  --text-muted:  #8899aa;
   --user-bg:     #1e1e30;
   --ai-bg:       #191920;
   --error:       #f87171;
@@ -70,7 +70,7 @@ html, body { height: 100%; overflow: hidden; }
 }
 
 .app-brand {
-  font-size: 11px;
+  font-size: 15px;
   font-weight: 500;
   color: var(--text-muted);
   letter-spacing: 0.01em;
@@ -713,7 +713,7 @@ html, body { height: 100%; overflow: hidden; }
 }
 
 .welcome-brand-line {
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 500;
   color: var(--text-muted);
   margin-bottom: 20px;
@@ -798,8 +798,9 @@ html, body { height: 100%; overflow: hidden; }
 .msg-content h1           { font-size: 1.3em; font-weight: 700; margin: 0.8em 0 0.4em; }
 .msg-content h2           { font-size: 1.15em; font-weight: 700; margin: 0.7em 0 0.3em; }
 .msg-content h3           { font-size: 1em; font-weight: 600; margin: 0.6em 0 0.3em; }
+.msg-content h4           { font-size: 0.9em; font-weight: 500; font-style: italic; margin: 0.5em 0 0.25em; color: var(--text-dim); }
 .msg-content ul           { padding-left: 1.2em; margin: 0.4em 0; }
-.msg-content li           { margin: 0.2em 0; }
+.msg-content li           { padding-left: 1em; }
 .msg-content strong       { font-weight: 700; color: var(--text); }
 .msg-content em           { font-style: italic; color: var(--text-dim); }
 

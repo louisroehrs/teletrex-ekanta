@@ -6,7 +6,6 @@ import * as webllm from 'https://esm.run/@mlc-ai/web-llm';
 const MODELS = [
 
 
-  { id: 'DeepSeek-R1-Distill-Qwen-1.5B-q4f16_1-MLC',    name: 'DeepSeek-R1 · 1.5B',   params: '1.5B', vram: 1.0, tag: 'Reasoning', tagColor: 'tag-purple', desc: 'DeepSeek — distilled reasoning model' },
   { id: 'DeepSeek-R1-Distill-Qwen-7B-q4f16_1-MLC',      name: 'DeepSeek-R1 · 7B',      params: '7B',   vram: 4.5, tag: 'Reasoning', tagColor: 'tag-purple', desc: 'Chain-of-thought reasoning distilled' },
   { id: 'DeepSeek-R1-Distill-Llama-8B-q4f16_1-MLC',     name: 'DeepSeek-R1 · 8B',      params: '8B',   vram: 5.0, tag: 'Reasoning', tagColor: 'tag-purple', desc: 'Strongest local reasoning model under 8 GB' },
   { id: 'gemma-2-2b-it-q4f16_1-MLC',                    name: 'Gemma 2 · 2B',          params: '2B',   vram: 1.5, tag: 'Google',    tagColor: 'tag-green',  desc: 'Google — efficient instruction-tuned' },
@@ -514,9 +513,10 @@ function renderMarkdown(text) {
   html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
   html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
   html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
-  html = html.replace(/^### (.+)$/gm, '<h3>$1</h3>');
-  html = html.replace(/^## (.+)$/gm,  '<h2>$1</h2>');
-  html = html.replace(/^# (.+)$/gm,   '<h1>$1</h1>');
+  html = html.replace(/^#### (.+)$/gm, '<h4>$1</h4>');
+  html = html.replace(/^### (.+)$/gm,  '<h3>$1</h3>');
+  html = html.replace(/^## (.+)$/gm,   '<h2>$1</h2>');
+  html = html.replace(/^# (.+)$/gm,    '<h1>$1</h1>');
   html = html.replace(/^[-*] (.+)$/gm, '<li>$1</li>');
   html = html.replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>');
   html = html.replace(/\n\n/g, '</p><p>');
