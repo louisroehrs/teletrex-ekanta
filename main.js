@@ -218,7 +218,7 @@ function handleChatCompletions(req, res) {
       res.write(`data: ${JSON.stringify(roleDelta)}\n\n`);
     }
 
-    pending.set(requestId, { res, isStream, buffer: '', created });
+    pending.set(requestId, { res, isStream, buffer: '', created, format: 'openai' });
 
     // Forward to renderer
     if (mainWindow) {
@@ -228,6 +228,53 @@ function handleChatCompletions(req, res) {
     } else {
       pending.delete(requestId);
       if (isStream) { res.write('data: [DONE]\n\n'); res.end(); }
+      else sendJson(res, 503, { error: { message: 'App window not ready', type: 'server_error' } });
+    }
+  });
+}
+
+function handleMessages(req, res) {
+  let body = '';
+  req.on('data', chunk => { body += chunk; });
+  req.on('end', () => {
+    let payload;
+    try { payload = JSON.parse(body); }
+    catch { return sendJson(res, 400, { error: { message: 'Invalid JSON', type: 'invalid_request_error' } }); }
+
+    if (!modelState.loaded) {
+      return sendJson(res, 503, { error: { message: 'No model loaded. Load a model in the Ekanta UI first.', type: 'server_error' } });
+    }
+
+    // Convert Anthropic format → internal (OpenAI-style messages array)
+    const messages    = [...(payload.messages ?? [])];
+    const isStream    = payload.stream      ?? false;
+    const temperature = payload.temperature ?? 0.7;
+    const maxTokens   = payload.max_tokens  ?? 2048;
+
+    if (payload.system) messages.unshift({ role: 'system', content: payload.system });
+    if (!messages.length) return sendJson(res, 400, { error: { message: '`messages` is required', type: 'invalid_request_error' } });
+
+    const requestId = 'msg_' + crypto.randomBytes(12).toString('hex');
+    const created   = Math.floor(Date.now() / 1000);
+    const model     = modelState.modelId ?? 'unknown';
+
+    if (isStream) {
+      res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', 'Connection': 'keep-alive' });
+      writeAnthropicEvent(res, 'message_start', {
+        type: 'message_start',
+        message: { id: requestId, type: 'message', role: 'assistant', content: [], model, stop_reason: null, stop_sequence: null, usage: { input_tokens: 0, output_tokens: 1 } },
+      });
+      writeAnthropicEvent(res, 'content_block_start', { type: 'content_block_start', index: 0, content_block: { type: 'text', text: '' } });
+      writeAnthropicEvent(res, 'ping', { type: 'ping' });
+    }
+
+    pending.set(requestId, { res, isStream, buffer: '', created, format: 'anthropic' });
+
+    if (mainWindow) {
+      mainWindow.webContents.send('server:inference-request', { requestId, messages, temperature, maxTokens });
+    } else {
+      pending.delete(requestId);
+      if (isStream) { writeAnthropicEvent(res, 'message_stop', { type: 'message_stop' }); res.end(); }
       else sendJson(res, 503, { error: { message: 'App window not ready', type: 'server_error' } });
     }
   });
