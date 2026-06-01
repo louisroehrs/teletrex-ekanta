@@ -519,6 +519,7 @@ function renderMarkdown(text) {
   html = html.replace(/^# (.+)$/gm,    '<h1>$1</h1>');
   html = html.replace(/^[-*] (.+)$/gm, '<li>$1</li>');
   html = html.replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>');
+  html = html.replace(/^---$/gm, '<hr>');
   html = html.replace(/\n\n/g, '</p><p>');
   html = html.replace(/\n/g, '<br>');
   html = `<p>${html}</p>`;
