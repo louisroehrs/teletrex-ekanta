@@ -153,6 +153,8 @@ const maxTokensSlider    = document.getElementById('maxTokensSlider');
 const maxTokensValue     = document.getElementById('maxTokensValue');
 const btnSaveSettings    = document.getElementById('btnSaveSettings');
 const settingsSaved      = document.getElementById('settingsSaved');
+const btnCopyConv        = document.getElementById('btnCopyConv');
+const btnCopyConvLabel   = document.getElementById('btnCopyConvLabel');
 
 // ---------------------------------------------------------------------------
 // GPU detection
@@ -302,6 +304,7 @@ async function loadModel() {
     inputBox.disabled = false;
     btnSend.disabled = false;
     btnClear.disabled = false;
+    btnCopyConv.disabled = false;
     inputBox.placeholder = `Chat with ${selectedModel.name}…`;
     modelStatus.textContent = `${selectedModel.name} · ${selectedModel.params} · ${selectedModel.vram} GB`;
     btnLoad.textContent = 'Loaded ✓';
@@ -659,6 +662,56 @@ function updateServerBadge(port) {
 }
 
 // ---------------------------------------------------------------------------
+// Copy conversation as rich text (HTML + plain text fallback)
+// ---------------------------------------------------------------------------
+async function copyConversationAsMarkdown() {
+  const conv = getConv(activeConvId);
+  if (!conv || !conv.messages.length) return;
+
+  const modelLabel = conv.modelName ?? 'Ekanta';
+  const date = new Date(conv.createdAt).toLocaleDateString(undefined, { dateStyle: 'medium' });
+
+  // ── Rich HTML ────────────────────────────────────────────────────────────
+  const msgHtml = conv.messages.map(msg => {
+    const isUser = msg.role === 'user';
+    const speaker = isUser ? 'You' : modelLabel;
+    const speakerColor = isUser ? '#7c6af7' : '#0f766e';
+    const rendered = renderMarkdown(msg.content.trim());
+    return `
+      <div style="margin:0 0 18px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:14px;line-height:1.6;color:#1c1917;">
+        <div style="font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:0.06em;color:${speakerColor};margin-bottom:4px;">${speaker}</div>
+        <div style="padding-left:2px;">${rendered}</div>
+      </div>`;
+  }).join('');
+
+  const html = `
+    <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;max-width:720px;padding:24px;">
+      <h1 style="margin:0 0 4px;font-size:20px;font-weight:700;color:#1c1917;">${escapeHtml(conv.title)}</h1>
+      <p style="margin:0 0 24px;font-size:12px;color:#78716c;">${escapeHtml(modelLabel)} · ${escapeHtml(date)}</p>
+      <hr style="border:none;border-top:1px solid #e7e5e4;margin:0 0 24px;">
+      ${msgHtml}
+    </div>`;
+
+  // ── Plain text fallback ──────────────────────────────────────────────────
+  const plain = [conv.title, `${modelLabel} · ${date}`, '']
+    .concat(conv.messages.flatMap(msg => {
+      const speaker = msg.role === 'user' ? 'You' : modelLabel;
+      return [`${speaker}:`, msg.content.trim(), ''];
+    }))
+    .join('\n');
+
+  await navigator.clipboard.write([
+    new ClipboardItem({
+      'text/html':  new Blob([html],  { type: 'text/html' }),
+      'text/plain': new Blob([plain], { type: 'text/plain' }),
+    }),
+  ]);
+
+  btnCopyConvLabel.textContent = 'Copied!';
+  setTimeout(() => { btnCopyConvLabel.textContent = 'Copy'; }, 2000);
+}
+
+// ---------------------------------------------------------------------------
 // Input auto-resize
 // ---------------------------------------------------------------------------
 function resizeInput() {
@@ -688,6 +741,8 @@ btnNewChat.addEventListener('click', () => {
 btnLoad.addEventListener('click', loadModel);
 
 btnSend.addEventListener('click', sendMessage);
+
+btnCopyConv.addEventListener('click', copyConversationAsMarkdown);
 
 btnClear.addEventListener('click', () => {
   const conv = getConv(activeConvId);

@@ -957,7 +957,16 @@ textarea:disabled { opacity: 0.5; cursor: not-allowed; }
 
 #modelStatus { font-size: 11px; color: var(--text-muted); }
 
-.btn-clear {
+.input-footer-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.btn-footer-action {
+  display: flex;
+  align-items: center;
+  gap: 4px;
   font-size: 11px;
   background: none;
   border: none;
@@ -966,7 +975,9 @@ textarea:disabled { opacity: 0.5; cursor: not-allowed; }
   padding: 2px 6px;
   border-radius: 4px;
   transition: color 0.15s;
+  white-space: nowrap;
 }
 
-.btn-clear:hover:not(:disabled) { color: var(--text-dim); }
-.btn-clear:disabled { opacity: 0.3; cursor: not-allowed; }
+.btn-footer-action svg { width: 11px; height: 11px; flex-shrink: 0; }
+.btn-footer-action:hover:not(:disabled) { color: var(--text-dim); }
+.btn-footer-action:disabled { opacity: 0.3; cursor: not-allowed; }
