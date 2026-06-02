@@ -904,6 +904,8 @@ html, body { height: 100%; overflow: hidden; }
 .msg-content li           { margin-left: 2em; padding-left: 0em; }
 .msg-content strong       { font-weight: 700; color: var(--text); }
 .msg-content em           { font-style: italic; color: var(--text-dim); }
+.msg-content a            { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
+.msg-content a:hover      { color: #9080ff; }
 
 .msg-content code {
   font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
