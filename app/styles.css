@@ -107,6 +107,27 @@ html, body { height: 100%; overflow: hidden; }
   flex-shrink: 0;
 }
 
+.titlebar-toggle {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  -webkit-app-region: no-drag;
+  transition: background 0.15s, color 0.15s;
+  margin: 0 2px;
+}
+
+.titlebar-toggle svg { width: 15px; height: 15px; }
+.titlebar-toggle:hover { background: var(--surface2); color: var(--text); }
+.titlebar-toggle.active { color: var(--accent); }
+
 .gpu-badge.gpu-ready .gpu-dot  { background: var(--success); box-shadow: 0 0 6px var(--success); }
 .gpu-badge.gpu-ready           { color: var(--text); border-color: rgba(74,222,128,0.3); }
 .gpu-badge.gpu-error .gpu-dot  { background: var(--error); }
@@ -165,6 +186,12 @@ html, body { height: 100%; overflow: hidden; }
   background: var(--surface);
   border-right: 1px solid var(--border);
   overflow: hidden;
+  transition: width 0.2s ease;
+}
+
+.conv-panel.collapsed {
+  width: 0;
+  border-right-width: 0;
 }
 
 .conv-header {
@@ -293,8 +320,14 @@ html, body { height: 100%; overflow: hidden; }
   display: flex;
   flex-direction: column;
   background: var(--surface);
-  border-right: 1px solid var(--border);
+  border-left: 1px solid var(--border);
   overflow: hidden;
+  transition: width 0.2s ease;
+}
+
+.sidebar.collapsed {
+  width: 0;
+  border-left-width: 0;
 }
 
 .sidebar-tabs {

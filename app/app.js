@@ -155,6 +155,10 @@ const btnSaveSettings    = document.getElementById('btnSaveSettings');
 const settingsSaved      = document.getElementById('settingsSaved');
 const btnCopyConv        = document.getElementById('btnCopyConv');
 const btnCopyConvLabel   = document.getElementById('btnCopyConvLabel');
+const btnToggleConv      = document.getElementById('btnToggleConv');
+const btnToggleSidebar   = document.getElementById('btnToggleSidebar');
+const convPanelEl        = document.querySelector('.conv-panel');
+const sidebarEl          = document.querySelector('.sidebar');
 
 // ---------------------------------------------------------------------------
 // GPU detection
@@ -743,6 +747,28 @@ function resizeInput() {
 tabBtnModels.addEventListener('click',   () => switchTab('models'));
 tabBtnSettings.addEventListener('click', () => switchTab('settings'));
 
+// Panel toggle buttons
+function applyPanelState() {
+  const convCollapsed    = localStorage.getItem('ekanta_conv_collapsed')    === '1';
+  const sidebarCollapsed = localStorage.getItem('ekanta_sidebar_collapsed') === '1';
+  convPanelEl.classList.toggle('collapsed', convCollapsed);
+  sidebarEl.classList.toggle('collapsed', sidebarCollapsed);
+  btnToggleConv.classList.toggle('active', !convCollapsed);
+  btnToggleSidebar.classList.toggle('active', !sidebarCollapsed);
+}
+
+btnToggleConv.addEventListener('click', () => {
+  const next = localStorage.getItem('ekanta_conv_collapsed') !== '1' ? '1' : '0';
+  localStorage.setItem('ekanta_conv_collapsed', next);
+  applyPanelState();
+});
+
+btnToggleSidebar.addEventListener('click', () => {
+  const next = localStorage.getItem('ekanta_sidebar_collapsed') !== '1' ? '1' : '0';
+  localStorage.setItem('ekanta_sidebar_collapsed', next);
+  applyPanelState();
+});
+
 btnNewChat.addEventListener('click', () => {
   const conv = createConversation();
   setActiveConversation(conv.id);
@@ -814,6 +840,7 @@ btnSaveSettings.addEventListener('click', () => {
 
   renderConvList();
   showWelcome();
+  applyPanelState();
 
   // Pre-select first model
   selectModel(MODELS[0]);
