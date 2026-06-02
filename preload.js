@@ -17,5 +17,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // ── Server bridge: main → renderer ────────────────────────────────────
   getServerPort:            ()   => ipcRenderer.invoke('server:get-port'),
+  getGPUInfo:               ()   => ipcRenderer.invoke('gpu:get-info'),
   onServerInferenceRequest: (cb) => ipcRenderer.on('server:inference-request', (_e, d) => cb(d)),
 });

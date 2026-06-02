@@ -100,6 +100,9 @@ ipcMain.on('server:inference-done', (_event, { requestId, promptTokens, completi
   }
 });
 
+// IPC: renderer requests GPU info
+ipcMain.handle('gpu:get-info', () => app.getGPUInfo('complete'));
+
 // IPC: renderer signals an error
 ipcMain.on('server:inference-error', (_event, { requestId, error }) => {
   const req = pending.get(requestId);

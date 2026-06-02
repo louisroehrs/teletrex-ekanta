@@ -178,8 +178,36 @@ async function detectGPU() {
       return false;
     }
     const info = await adapter.requestAdapterInfo();
-    gpuLabel.textContent = info.description || info.vendor || 'GPU';
+    const gpuName = info.description || info.vendor || 'GPU';
+
+    // Source 1: Electron main-process GPU info
+    let vramGB = 0;
+    if (window.electronAPI?.getGPUInfo) {
+      try {
+        const gpuInfo = await window.electronAPI.getGPUInfo();
+        const dev = gpuInfo?.gpuDevice?.[0];
+        const bytes = dev?.dedicatedVideoMemory || dev?.sharedSystemMemory || 0;
+        if (bytes > 0) vramGB = Math.round((bytes / 1073741824) * 2) / 2;
+      } catch {}
+    }
+
+    // Source 2: read maxBufferSize directly from the adapter WebLLM will also use
+    if (!vramGB) {
+      const maxBuf = adapter.limits?.maxBufferSize ?? 0;
+      if (maxBuf > 0) vramGB = Math.round((maxBuf / 1073741824) * 1.33 * 2) / 2;
+
+      vramGB = 8;
+
+    }
+
+    const memStr = vramGB ? ` · ${vramGB} GB` : '';
+    gpuLabel.textContent = gpuName + memStr;
     gpuBadge.classList.add('gpu-ready');
+
+    // Update the Models sidebar VRAM hint
+    const vramHint = document.getElementById('vramHint');
+    if (vramHint && vramGB) vramHint.textContent = `${vramGB} GB VRAM`;
+
     return true;
   } catch {
     gpuLabel.textContent = 'GPU error';
