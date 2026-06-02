@@ -523,12 +523,12 @@ function showWelcome() {
       <h1 class="welcome-h1">Ekanta</h1>
       <p class="welcome-brand-line">by TeleTrex</p>
       <p class="welcome-desc">
-        Select a model from the sidebar and click <strong>Load Model</strong> to begin.<br/>
-        Everything runs locally on your Mac via WebGPU — no cloud, no API keys.
+        Select a model from the sidebar and click <strong>Load Model</strong> to begin. Once a model is cached, it is available to use offline. Load and cache the desired models, turn off wifi, and everything still runs.
+        Everything runs locally and privately on your Mac, inflight, no cloud, no AI service, no network needed.
       </p>
       <div class="welcome-features">
         <div class="feature"><span class="feature-icon">🔒</span><span>100% local &amp; private</span></div>
-        <div class="feature"><span class="feature-icon">⚡</span><span>WebGPU accelerated</span></div>
+        <div class="feature"><span class="feature-icon">⚡</span><span>Runs fast on your machine's GPU.</span></div>
         <div class="feature"><span class="feature-icon">💾</span><span>Models cached locally</span></div>
       </div>
     `;
