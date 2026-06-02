@@ -572,11 +572,29 @@ function renderMarkdown(text) {
   html = html.replace(/^[-*] (.+)$/gm, '<li>$1</li>');
   html = html.replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>');
   html = html.replace(/^---$/gm, '<hr>');
+
+  // Tables — must run before paragraph wrapping
+  html = html.replace(
+    /^(\|.+)\r?\n(\|[\s|:|-]+)\r?\n((?:\|.+\r?\n?)*)/gm,
+    (_, headerLine, sepLine, bodyLines) => {
+      const cells = line => line.split('|').slice(1, -1).map(c => c.trim());
+      const aligns = cells(sepLine).map(c =>
+        /^:-+:$/.test(c) ? 'center' : /^-+:$/.test(c) ? 'right' : 'left'
+      );
+      const th = cells(headerLine)
+        .map((c, i) => `<th style="text-align:${aligns[i]}">${c}</th>`).join('');
+      const trs = bodyLines.trim().split('\n').filter(Boolean)
+        .map(row => `<tr>${cells(row).map((c, i) =>
+          `<td style="text-align:${aligns[i]}">${c}</td>`).join('')}</tr>`).join('');
+      return `<table class="md-table"><thead><tr>${th}</tr></thead><tbody>${trs}</tbody></table>`;
+    }
+  );
+
   html = html.replace(/\n\n/g, '</p><p>');
   html = html.replace(/\n/g, '<br>');
   html = `<p>${html}</p>`;
-  html = html.replace(/<p>\s*(<(?:pre|ul|h[1-3]))/g, '$1');
-  html = html.replace(/(<\/(?:pre|ul|h[1-3])>)\s*<\/p>/g, '$1');
+  html = html.replace(/<p>\s*(<(?:pre|ul|table|h[1-4]|hr))/g, '$1');
+  html = html.replace(/(<\/(?:pre|ul|table|h[1-4])>|<hr>)\s*<\/p>/g, '$1');
 
   return html;
 }
