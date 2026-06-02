@@ -10,6 +10,8 @@ const MODELS = [
   { id: 'DeepSeek-R1-Distill-Llama-8B-q4f16_1-MLC',     name: 'DeepSeek-R1 · 8B',      params: '8B',   vram: 5.0, tag: 'Reasoning', tagColor: 'tag-purple', desc: 'Strongest local reasoning model under 8 GB' },
   { id: 'gemma-2-2b-it-q4f16_1-MLC',                    name: 'Gemma 2 · 2B',          params: '2B',   vram: 1.5, tag: 'Google',    tagColor: 'tag-green',  desc: 'Google — efficient instruction-tuned' },
   { id: 'gemma-2-9b-it-q4f16_1-MLC',                    name: 'Gemma 2 · 9B',           params: '9B',   vram: 5.5, tag: 'Google',    tagColor: 'tag-green',  desc: 'Google — top quality at 9B parameters' },
+//  { id: 'gemma3-1b-it-q4f16_1-MLC',                      name: 'Gemma 3 · 1B',           params: '1B',   vram: 0.7, tag: 'Google',    tagColor: 'tag-green',  desc: 'Google — ultra-light Gemma 3, runs anywhere',
+//    overrides: { context_window_size: 4096, sliding_window_size: -1 } },
   { id: 'Llama-3.2-3B-Instruct-q4f16_1-MLC',            name: 'Llama 3.2 · 3B',        params: '3B',   vram: 2.0, tag: 'Meta',      tagColor: 'tag-orange', desc: 'Meta — fast general-purpose assistant' },
   { id: 'Llama-3.1-8B-Instruct-q4f16_1-MLC',            name: 'Llama 3.1 · 8B',        params: '8B',   vram: 5.0, tag: 'Meta',      tagColor: 'tag-orange', desc: 'Meta flagship — balanced quality & speed' },
   { id: 'Mistral-7B-Instruct-v0.3-q4f16_1-MLC',         name: 'Mistral 7B v0.3',        params: '7B',   vram: 4.5, tag: '★ Popular', tagColor: 'tag-gold',   desc: 'Mistral AI — excellent 7B benchmark' },
@@ -267,7 +269,7 @@ async function loadModel() {
   }
 
   try {
-    engine = await webllm.CreateMLCEngine(selectedModel.id, {
+    const engineConfig = {
       initProgressCallback: (report) => {
         const pct = Math.round((report.progress || 0) * 100);
         progressFill.style.width = `${pct}%`;
@@ -275,7 +277,18 @@ async function loadModel() {
           ? report.text.replace(/\[.*?\]\s*/, '').slice(0, 60)
           : `${pct}%`;
       },
-    });
+    };
+    if (selectedModel.overrides) {
+      engineConfig.appConfig = {
+        ...webllm.prebuiltAppConfig,
+        model_list: webllm.prebuiltAppConfig.model_list.map(m =>
+          m.model_id === selectedModel.id
+            ? { ...m, overrides: { ...(m.overrides ?? {}), ...selectedModel.overrides } }
+            : m
+        ),
+      };
+    }
+    engine = await webllm.CreateMLCEngine(selectedModel.id, engineConfig);
 
     const prevModelId = loadedModelId;
     loadedModelId = selectedModel.id;
