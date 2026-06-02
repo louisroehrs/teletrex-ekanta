@@ -827,6 +827,162 @@ btnSaveSettings.addEventListener('click', () => {
 });
 
 // ---------------------------------------------------------------------------
+// Neural network background animation
+// ---------------------------------------------------------------------------
+function initNeuralBackground() {
+  const canvas = document.getElementById('neuralBg');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+
+  const COLORS = [
+    { r: 124, g: 106, b: 247 }, // accent purple
+    { r: 124, g: 106, b: 247 },
+    { r: 124, g: 106, b: 247 },
+    { r: 45,  g: 212, b: 191 }, // teal accent
+    { r: 167, g: 139, b: 250 }, // lighter purple
+  ];
+
+  let nodes = [], signals = [];
+
+  function resize() {
+    canvas.width  = canvas.offsetWidth;
+    canvas.height = canvas.offsetHeight;
+    buildNodes();
+  }
+
+  function buildNodes() {
+    const area = canvas.width * canvas.height;
+    const count = Math.max(22, Math.min(55, Math.floor(area / 14000)));
+    nodes = Array.from({ length: count }, () => {
+      const c = COLORS[Math.floor(Math.random() * COLORS.length)];
+      return {
+        x:          Math.random() * canvas.width,
+        y:          Math.random() * canvas.height,
+        vx:         (Math.random() - 0.5) * 0.28,
+        vy:         (Math.random() - 0.5) * 0.28,
+        phase:      Math.random() * Math.PI * 2,
+        phaseSpeed: 0.004 + Math.random() * 0.006,
+        waveAmp:    0.18 + Math.random() * 0.22,
+        r:          1.2 + Math.random() * 1.8,
+        depth:      0.3 + Math.random() * 0.7, // 0=far, 1=near
+        c,
+      };
+    });
+    signals = [];
+  }
+
+  function spawnSignal() {
+    if (nodes.length < 2) return;
+    const threshold = 170;
+    // pick a random edge that exists
+    for (let attempt = 0; attempt < 20; attempt++) {
+      const i = Math.floor(Math.random() * nodes.length);
+      const j = Math.floor(Math.random() * nodes.length);
+      if (i === j) continue;
+      const dx = nodes[i].x - nodes[j].x;
+      const dy = nodes[i].y - nodes[j].y;
+      if (Math.sqrt(dx * dx + dy * dy) < threshold) {
+        signals.push({ from: i, to: j, t: 0, speed: 0.008 + Math.random() * 0.012 });
+        break;
+      }
+    }
+  }
+
+  let lastSignalTime = 0;
+
+  function draw(ts) {
+    const W = canvas.width, H = canvas.height;
+    ctx.clearRect(0, 0, W, H);
+    const threshold = 170;
+
+    // Update nodes
+    nodes.forEach(n => {
+      n.phase += n.phaseSpeed;
+      n.x += n.vx;
+      n.y += n.vy + Math.sin(n.phase) * n.waveAmp;
+      if (n.x < -60) n.x = W + 60;
+      if (n.x > W + 60) n.x = -60;
+      if (n.y < -60) n.y = H + 60;
+      if (n.y > H + 60) n.y = -60;
+    });
+
+    // Spawn signals periodically
+    if (ts - lastSignalTime > 800 + Math.random() * 1200) {
+      spawnSignal();
+      lastSignalTime = ts;
+    }
+
+    // Draw edges
+    for (let i = 0; i < nodes.length; i++) {
+      for (let j = i + 1; j < nodes.length; j++) {
+        const dx = nodes[i].x - nodes[j].x;
+        const dy = nodes[i].y - nodes[j].y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < threshold) {
+          const fade   = 1 - dist / threshold;
+          const depth  = (nodes[i].depth + nodes[j].depth) * 0.5;
+          const alpha  = fade * fade * depth * 0.18;
+          const { r, g, b } = nodes[i].c;
+          ctx.beginPath();
+          ctx.moveTo(nodes[i].x, nodes[i].y);
+          ctx.lineTo(nodes[j].x, nodes[j].y);
+          ctx.strokeStyle = `rgba(${r},${g},${b},${alpha})`;
+          ctx.lineWidth = depth * 0.8;
+          ctx.stroke();
+        }
+      }
+    }
+
+    // Draw signals
+    signals = signals.filter(sig => {
+      sig.t += sig.speed;
+      if (sig.t > 1) return false;
+      const a = nodes[sig.from], b = nodes[sig.to];
+      const sx = a.x + (b.x - a.x) * sig.t;
+      const sy = a.y + (b.y - a.y) * sig.t;
+      const grd = ctx.createRadialGradient(sx, sy, 0, sx, sy, 6);
+      grd.addColorStop(0,   'rgba(200,180,255,0.9)');
+      grd.addColorStop(0.4, 'rgba(124,106,247,0.4)');
+      grd.addColorStop(1,   'rgba(124,106,247,0)');
+      ctx.beginPath();
+      ctx.arc(sx, sy, 6, 0, Math.PI * 2);
+      ctx.fillStyle = grd;
+      ctx.fill();
+      return true;
+    });
+
+    // Draw nodes
+    nodes.forEach(n => {
+      const pulse = 0.85 + Math.sin(n.phase) * 0.15;
+      const r     = n.r * pulse * n.depth;
+      const alpha = 0.25 + n.depth * 0.45;
+      const { r: cr, g: cg, b: cb } = n.c;
+
+      // Glow halo
+      const grd = ctx.createRadialGradient(n.x, n.y, 0, n.x, n.y, r * 5);
+      grd.addColorStop(0,   `rgba(${cr},${cg},${cb},${alpha * 0.3})`);
+      grd.addColorStop(1,   `rgba(${cr},${cg},${cb},0)`);
+      ctx.beginPath();
+      ctx.arc(n.x, n.y, r * 5, 0, Math.PI * 2);
+      ctx.fillStyle = grd;
+      ctx.fill();
+
+      // Node core
+      ctx.beginPath();
+      ctx.arc(n.x, n.y, r, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(${cr},${cg},${cb},${alpha})`;
+      ctx.fill();
+    });
+
+    requestAnimationFrame(draw);
+  }
+
+  new ResizeObserver(resize).observe(canvas.parentElement);
+  resize();
+  requestAnimationFrame(draw);
+}
+
+// ---------------------------------------------------------------------------
 // Boot
 // ---------------------------------------------------------------------------
 (async () => {
@@ -841,6 +997,7 @@ btnSaveSettings.addEventListener('click', () => {
   renderConvList();
   showWelcome();
   applyPanelState();
+  initNeuralBackground();
 
   // Pre-select first model
   selectModel(MODELS[0]);

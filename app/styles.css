@@ -725,7 +725,19 @@ html, body { height: 100%; overflow: hidden; }
   background: var(--bg);
   overflow: hidden;
   min-width: 0;
+  position: relative;
 }
+
+.neural-bg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.messages, .input-area { position: relative; z-index: 1; }
 
 .messages {
   flex: 1;
