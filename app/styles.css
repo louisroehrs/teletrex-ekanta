@@ -475,6 +475,34 @@ html, body { height: 100%; overflow: hidden; }
 
 .vram-label { font-size: 10px; color: var(--text-muted); white-space: nowrap; }
 
+.model-status {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 7px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.model-status--active { color: var(--success); }
+.model-status--cached { color: var(--text-muted); }
+
+.status-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.model-status--active .status-dot {
+  background: var(--success);
+  box-shadow: 0 0 5px var(--success);
+}
+
+.model-status--cached .status-dot { background: var(--text-muted); }
+
 /* ── Sidebar footer ─────────────────────────────────────────────────────── */
 .sidebar-footer {
   padding: 10px;

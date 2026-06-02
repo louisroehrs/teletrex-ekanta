@@ -14,8 +14,8 @@ const MODELS = [
   { id: 'Llama-3.1-8B-Instruct-q4f16_1-MLC',            name: 'Llama 3.1 · 8B',        params: '8B',   vram: 5.0, tag: 'Meta',      tagColor: 'tag-orange', desc: 'Meta flagship — balanced quality & speed' },
   { id: 'Mistral-7B-Instruct-v0.3-q4f16_1-MLC',         name: 'Mistral 7B v0.3',        params: '7B',   vram: 4.5, tag: '★ Popular', tagColor: 'tag-gold',   desc: 'Mistral AI — excellent 7B benchmark' },
   { id: 'Phi-3.5-mini-instruct-q4f16_1-MLC',            name: 'Phi 3.5 Mini',           params: '3.8B', vram: 2.5, tag: 'Microsoft', tagColor: 'tag-blue',   desc: 'Microsoft — punches above its weight' },
-  { id: 'Qwen2.5-3B-Instruct-q4f16_1-MLC',              name: 'Qwen 2.5 · 3B',         params: '3B',   vram: 2.0, tag: 'Alibaba',   tagColor: 'tag-green',  desc: 'Strong multilingual & coding support' },
   { id: 'Qwen2.5-0.5B-Instruct-q4f16_1-MLC',            name: 'Qwen 2.5 · 0.5B',     params: '0.5B', vram: 0.4, tag: 'Tiny',      tagColor: 'tag-blue',   desc: 'Alibaba — ultra-light, instant replies' },
+  { id: 'Qwen2.5-3B-Instruct-q4f16_1-MLC',              name: 'Qwen 2.5 · 3B',         params: '3B',   vram: 2.0, tag: 'Alibaba',   tagColor: 'tag-green',  desc: 'Strong multilingual & coding support' },
   { id: 'Qwen2.5-7B-Instruct-q4f16_1-MLC',              name: 'Qwen 2.5 · 7B',         params: '7B',   vram: 4.5, tag: 'Coding',    tagColor: 'tag-green',  desc: 'Best-in-class coding & reasoning at 7B' },
   { id: 'Qwen3-8B-q4f16_1-MLC',                         name: 'Qwen 3 · 8B',         params: '8B',   vram: 5.3 , tag: 'General',    tagColor: 'tag-green',  desc: 'Best-in-class reasoning at 8B' },
   { id: 'Qwen3.5-9B-q4f16_1-MLC',                       name: 'Qwen 3.5 · 9B',         params: '9B',   vram: 6.4 , tag: 'General',    tagColor: 'tag-green',  desc: 'Bigger and slower than Qwen 3' },
@@ -91,7 +91,37 @@ let engine           = null;
 let loadedModelId    = null;
 let selectedModel    = null;
 let isGenerating     = false;
-let serverGenerating = false;  // true while handling an HTTP server request
+let serverGenerating = false;
+
+const cachedModelIds = new Set();
+
+async function refreshCachedModels() {
+  if (typeof webllm.hasModelInCache !== 'function') return;
+  await Promise.all(MODELS.map(async (m) => {
+    try {
+      const cached = await webllm.hasModelInCache(m.id);
+      cached ? cachedModelIds.add(m.id) : cachedModelIds.delete(m.id);
+    } catch {}
+  }));
+  MODELS.forEach(m => updateModelCardStatus(m.id));
+}
+
+function updateModelCardStatus(modelId) {
+  const card = modelListEl?.querySelector(`[data-id="${CSS.escape(modelId)}"]`);
+  if (!card) return;
+  let el = card.querySelector('.model-status');
+  const isActive = modelId === loadedModelId;
+  const isCached = cachedModelIds.has(modelId);
+  if (!isActive && !isCached) { el?.remove(); return; }
+  if (!el) {
+    el = document.createElement('div');
+    card.appendChild(el);
+  }
+  el.className = `model-status${isActive ? ' model-status--active' : ' model-status--cached'}`;
+  el.innerHTML = isActive
+    ? '<span class="status-dot"></span>Active'
+    : '<span class="status-dot"></span>Cached';
+}
 
 // ---------------------------------------------------------------------------
 // DOM refs
@@ -229,9 +259,11 @@ async function loadModel() {
 
   if (engine) {
     try { await engine.unload(); } catch (_) {}
+    const prev = loadedModelId;
     engine = null;
     loadedModelId = null;
     window.electronAPI?.sendModelStatus({ loaded: false, modelId: null, modelName: null });
+    if (prev) updateModelCardStatus(prev);
   }
 
   try {
@@ -245,7 +277,11 @@ async function loadModel() {
       },
     });
 
+    const prevModelId = loadedModelId;
     loadedModelId = selectedModel.id;
+    cachedModelIds.add(selectedModel.id);
+    if (prevModelId) updateModelCardStatus(prevModelId);
+    updateModelCardStatus(loadedModelId);
     window.electronAPI?.sendModelStatus({ loaded: true, modelId: selectedModel.id, modelName: selectedModel.name });
     progressFill.style.width = '100%';
     progressText.textContent = 'Ready';
@@ -697,6 +733,9 @@ btnSaveSettings.addEventListener('click', () => {
   selectModel(MODELS[0]);
 
   const ok = await detectGPU();
+
+  // Check which models are already cached (runs in background)
+  refreshCachedModels();
   if (!ok) btnLoad.title = 'WebGPU not available';
 
   // Wire up server IPC
