@@ -27,7 +27,7 @@
       "title": "TeleTrex Ekanta",
       "background": "assets/dmg-background.png",
       "iconSize": 80,
-      "window": { "width": 540, "height": 380 },
+      "window": {  "width": 540, "height": 380, "x" :0, "y" :0  }, 
       "contents": [
         { "x": 160, "y": 190, "type": "file" },
         { "x": 380, "y": 190, "type": "link", "path": "/Applications" }
@@ -46,7 +46,7 @@
   },
   "devDependencies": {
     "electron": "^28.3.3",
-    "electron-builder": "^25.1.8"
+    "electron-builder": "^26.8.2"
   },
   "engines": {
     "node": ">=18"

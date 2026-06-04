@@ -1,0 +1,32 @@
+{
+  "id": "chatcmpl-33ad53493f60955a",
+  "object": "chat.completion",
+  "created": 1780555556,
+  "model": "Qwen2.5-3B-Instruct-q4f16_1-MLC",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "WebGPU aims to be a more efficient and flexible alternative to WebGL. Here are some key differences:\n\n1. **Performance**: WebGPU is designed to provide better performance and lower memory overhead compared to WebGL, especially for complex rendering tasks.\n\n2. **Developer Experience**: It simplifies the setup process by providing a more straightforward API and reducing the boilerplate code needed.\n\n3. **Security**: WebGPU offers improved security features, including hardware-accelerated encryption, which enhances data protection.\n\n4. **Portability**: WebGPU is more portable across different platforms (Desktop, Web, Mobile) because it's built on the Web API standards.\n\n5. **API Design**: WebGPU uses a more structured and feature-rich API design, allowing for more direct manipulation of GPU resources and operations.\n\n6. **Compatibility**: As of now, WebGPU is still in development and not yet widely supported in all browsers, whereas WebGL has been well-supported in most modern browsers.\n\nHowever, WebGPU is still under development and is not yet fully implemented in web browsers. WebGL remains the primary GPU API for web content until WebGPU becomes more widely adopted and stable."
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 0,
+    "completion_tokens": 230,
+    "total_tokens": 230
+  }
+}
+// POST http://127.0.0.1:42069/v1/chat/completions
+// HTTP/1.1 200 OK
+// Access-Control-Allow-Origin: *
+// Access-Control-Allow-Methods: GET, POST, OPTIONS
+// Access-Control-Allow-Headers: Content-Type, Authorization
+// Content-Type: application/json
+// Date: Thu, 04 Jun 2026 06:46:08 GMT
+// Connection: keep-alive
+// Keep-Alive: timeout=5
+// Transfer-Encoding: chunked
+// Request duration: 12.099285s

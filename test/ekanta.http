@@ -1,0 +1,86 @@
+### Get current model
+
+#   The model field is required by the spec but the loaded model is always
+#   used regardless — use GET /v1/models to get the exact ID of whatever is
+#   currently loaded.
+
+GET http://127.0.0.1:42069/v1/models
+
+###  Ask a simple question
+
+
+POST http://127.0.0.1:42069/v1/messages
+Content-Type: application/json
+
+{
+   "model": "Llama-3.2-3B-Instruct-q4f16_1-MLC",
+   "messages": [
+       { "role": "user", "content": "What is the capital of France?" }
+     ]
+}
+
+
+###
+
+
+POST http://127.0.0.1:42069/v1/messages
+Content-Type: application/json
+
+{
+   "model": "Llama-3.2-3B-Instruct-q4f16_1-MLC",
+   "messages": [
+       { "role": "user", "content": "What is WebGPU?" }
+     ]
+}
+
+
+### Streaming
+
+
+POST http://127.0.0.1:42069/v1/chat/completions
+Content-Type: application/json
+
+{
+   "model": "Llama-3.2-3B-Instruct-q4f16_1-MLC",
+   "messages": [
+     { "role": "user", "content": "Tell me a haiku about local AI." }
+   ],
+   "stream": true
+}
+
+
+### With System Prompt  
+
+POST http://127.0.0.1:42069/v1/chat/completions
+Content-Type: application/json
+
+{
+   "model": "Llama-3.2-3B-Instruct-q4f16_1-MLC",
+   "messages":
+    [
+      { "role": "system",    "content": "You are a concise assistant."},
+      { "role": "user",      "content": "What is WebGPU?" }
+    ],
+   "temperature": 0.7,
+   "max_tokens": 2048
+}
+
+### Multi-turn with system prompt,
+
+POST http://127.0.0.1:42069/v1/chat/completions
+Content-Type: application/json
+
+{
+   "model": "Llama-3.2-3B-Instruct-q4f16_1-MLC",
+   "messages":
+    [
+      { "role": "system",    "content": "You are a concise assistant."},
+      { "role": "user",      "content": "What is WebGPU?" },
+      { "role": "assistant", "content": "WebGPU is a modern GPU API for the web." },
+      { "role": "user",      "content": "How does it compare to WebGL?" }
+    ],
+   "temperature": 0.7,
+   "max_tokens": 2048
+}
+
+
