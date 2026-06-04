@@ -96,6 +96,7 @@ let isGenerating     = false;
 let serverGenerating = false;
 
 const cachedModelIds = new Set();
+let detectedVramGB   = 8; // updated by detectGPU() once system_profiler resolves
 
 async function refreshCachedModels() {
   if (typeof webllm.hasModelInCache !== 'function') return;
@@ -180,33 +181,43 @@ async function detectGPU() {
     const info = await adapter.requestAdapterInfo();
     const gpuName = info.description || info.vendor || 'GPU';
 
-    // Source 1: Electron main-process GPU info
+    // Source 1: system_profiler — exact VRAM strings, matched to the WebGPU adapter
     let vramGB = 0;
     if (window.electronAPI?.getGPUInfo) {
       try {
-        const gpuInfo = await window.electronAPI.getGPUInfo();
-        const dev = gpuInfo?.gpuDevice?.[0];
-        const bytes = dev?.dedicatedVideoMemory || dev?.sharedSystemMemory || 0;
-        if (bytes > 0) vramGB = Math.round((bytes / 1073741824) * 2) / 2;
+        const gpuList = await window.electronAPI.getGPUInfo();
+        if (Array.isArray(gpuList) && gpuList.length) {
+          // Prefer discrete GPU (has dedicated spdisplays_vram); fall back to integrated
+          const match = gpuList.find(g => g.spdisplays_vram)
+                     ?? gpuList.find(g => g._spdisplays_vram || g.spdisplays_vram_shared);
+          const vramStr = match?.spdisplays_vram ?? match?._spdisplays_vram ?? match?.spdisplays_vram_shared ?? '';
+          if (vramStr) {
+            const num = parseFloat(vramStr);
+            vramGB = /mb/i.test(vramStr)
+              ? Math.round((num / 1024) * 2) / 2
+              : Math.round(num * 2) / 2;
+          }
+        }
       } catch {}
     }
 
-    // Source 2: read maxBufferSize directly from the adapter WebLLM will also use
+    // Source 2: WebGPU maxBufferSize heuristic (~75% of VRAM on Metal)
     if (!vramGB) {
       const maxBuf = adapter.limits?.maxBufferSize ?? 0;
       if (maxBuf > 0) vramGB = Math.round((maxBuf / 1073741824) * 1.33 * 2) / 2;
-
-      vramGB = 8;
-
     }
 
     const memStr = vramGB ? ` · ${vramGB} GB` : '';
     gpuLabel.textContent = gpuName + memStr;
     gpuBadge.classList.add('gpu-ready');
 
-    // Update the Models sidebar VRAM hint
-    const vramHint = document.getElementById('vramHint');
-    if (vramHint && vramGB) vramHint.textContent = `${vramGB} GB VRAM`;
+    // Update the Models sidebar VRAM hint and bar graphs
+    if (vramGB) {
+      detectedVramGB = vramGB;
+      const vramHint = document.getElementById('vramHint');
+      if (vramHint) vramHint.textContent = `${vramGB} GB VRAM`;
+      updateVramBars();
+    }
 
     return true;
   } catch {
@@ -241,13 +252,21 @@ function syncSettingsUI() {
 // ---------------------------------------------------------------------------
 // Build model list
 // ---------------------------------------------------------------------------
+function updateVramBars() {
+  MODELS.forEach(m => {
+    const card = modelListEl?.querySelector(`[data-id="${CSS.escape(m.id)}"]`);
+    const fill = card?.querySelector('.vram-bar-fill');
+    if (fill) fill.style.width = `${Math.min(100, Math.round((m.vram / detectedVramGB) * 100))}%`;
+  });
+}
+
 function buildModelList() {
   modelListEl.innerHTML = '';
   MODELS.forEach((m) => {
     const card = document.createElement('div');
     card.className = 'model-card';
     card.dataset.id = m.id;
-    const vramPct = Math.round((m.vram / 8) * 100);
+    const vramPct = Math.min(100, Math.round((m.vram / detectedVramGB) * 100));
     card.innerHTML = `
       <div class="model-card-top">
         <div class="model-name">${m.name}</div>
@@ -556,7 +575,7 @@ function showWelcome() {
       <p class="welcome-brand-line">by TeleTrex</p>
       <p class="welcome-desc">
         Select a model from the sidebar and click <strong>Load Model</strong> to begin. Once a model is cached, it is available to use offline. Load and cache the desired models, turn off wifi, and everything still runs.
-        Everything runs locally and privately on your Mac, inflight, no cloud, no AI service, no network needed.
+        Everything runs locally and privately on your Mac, inflight, no cloud, no AI service, no network needed.  Chat away in the stratosphere!
       </p>
       <div class="welcome-features">
         <div class="feature"><span class="feature-icon">🔒</span><span>100% local &amp; private</span></div>

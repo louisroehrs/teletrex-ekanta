@@ -1,13 +1,13 @@
 const { app, BrowserWindow, session, ipcMain } = require('electron');
-const path  = require('path');
-const http  = require('http');
-const crypto = require('crypto');
+const path     = require('path');
+const http     = require('http');
+const crypto   = require('crypto');
+const { execFile } = require('child_process');
 
 // Enable WebGPU with Metal backend on macOS
 app.commandLine.appendSwitch('enable-unsafe-webgpu');
 app.commandLine.appendSwitch('enable-features', 'WebGPU,WebGPUDeveloperFeatures');
 app.commandLine.appendSwitch('use-angle', 'metal');
-app.commandLine.appendSwitch('ignore-gpu-blocklist');
 app.commandLine.appendSwitch('enable-gpu-rasterization');
 
 const SERVER_PORT = 42069;
@@ -100,8 +100,14 @@ ipcMain.on('server:inference-done', (_event, { requestId, promptTokens, completi
   }
 });
 
-// IPC: renderer requests GPU info
-ipcMain.handle('gpu:get-info', () => app.getGPUInfo('complete'));
+// IPC: renderer requests GPU info via system_profiler (authoritative VRAM source on macOS)
+ipcMain.handle('gpu:get-info', () => new Promise((resolve) => {
+  execFile('system_profiler', ['SPDisplaysDataType', '-json'], { timeout: 5000 }, (err, stdout) => {
+    if (err) { resolve(null); return; }
+    try { resolve(JSON.parse(stdout).SPDisplaysDataType ?? null); }
+    catch { resolve(null); }
+  });
+}));
 
 // IPC: renderer signals an error
 ipcMain.on('server:inference-error', (_event, { requestId, error }) => {
@@ -314,7 +320,6 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
-      webSecurity: false,
       allowRunningInsecureContent: false,
     },
   });
