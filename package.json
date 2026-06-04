@@ -8,46 +8,30 @@
     "start": "electron .",
     "dist": "PATH=$PWD/.venv/bin:$PATH electron-builder --mac",
     "dist:dmg": "PATH=$PWD/.venv/bin:$PATH electron-builder --mac dmg",
-    "dist:mas": "PATH=$PWD/.venv/bin:$PATH electron-builder --mac mas",
     "dist:dir": "PATH=$PWD/.venv/bin:$PATH electron-builder --mac dir"
   },
   "build": {
     "appId": "com.teletrex.ekanta",
-    "productName": "Ekanta",
+    "productName": "TeleTrex Ekanta",
     "copyright": "Copyright © 2026 TeleTrex",
     "mac": {
       "icon": "assets/icon.icns",
       "category": "public.app-category.productivity",
-      "hardenedRuntime": true,
-      "entitlements": "entitlements.mas.plist",
-      "entitlementsInherit": "entitlements.mas.plist",
       "target": [
-        {
-          "target": "mas",
-          "arch": ["x64", "arm64"]
-        },
-        {
-          "target": "dmg",
-          "arch": ["x64", "arm64"]
-        },
-        {
-          "target": "zip",
-          "arch": ["x64", "arm64"]
-        }
+        { "target": "dmg", "arch": ["x64", "arm64"] },
+        { "target": "zip", "arch": ["x64", "arm64"] }
       ],
       "minimumSystemVersion": "12.0"
     },
-    "mas": {
-      "entitlements": "entitlements.mas.plist",
-      "entitlementsInherit": "entitlements.mas.plist",
-      "hardenedRuntime": true
-    },
     "dmg": {
       "title": "TeleTrex Ekanta",
-      "window": {
-        "width": 540,
-        "height": 380
-      }
+      "background": "assets/dmg-background.png",
+      "iconSize": 80,
+      "window": { "width": 540, "height": 380 },
+      "contents": [
+        { "x": 160, "y": 190, "type": "file" },
+        { "x": 380, "y": 190, "type": "link", "path": "/Applications" }
+      ]
     },
     "files": [
       "main.js",

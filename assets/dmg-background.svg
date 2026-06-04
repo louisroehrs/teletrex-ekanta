@@ -1,0 +1,142 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="760" viewBox="0 0 1080 760">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#0e0e1c"/>
+      <stop offset="100%" stop-color="#080810"/>
+    </linearGradient>
+
+    <radialGradient id="leftGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#7c6af7" stop-opacity="0.22"/>
+      <stop offset="100%" stop-color="#7c6af7" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="rightGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#7c6af7" stop-opacity="0.22"/>
+      <stop offset="100%" stop-color="#7c6af7" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="centerGlow" cx="50%" cy="60%" r="45%">
+      <stop offset="0%" stop-color="#7c6af7" stop-opacity="0.06"/>
+      <stop offset="100%" stop-color="#7c6af7" stop-opacity="0"/>
+    </radialGradient>
+
+    <pattern id="dots" x="0" y="0" width="40" height="40" patternUnits="userSpaceOnUse">
+      <circle cx="20" cy="20" r="1" fill="#7c6af7" opacity="0.1"/>
+    </pattern>
+
+    <marker id="arr" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <path d="M 0 0 L 10 3.5 L 0 7 Z" fill="#7c6af7" opacity="0.75"/>
+    </marker>
+
+    <filter id="shadow">
+      <feDropShadow dx="0" dy="6" stdDeviation="14" flood-color="#7c6af7" flood-opacity="0.25"/>
+    </filter>
+    <filter id="glowFilter">
+      <feGaussianBlur stdDeviation="8" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1080" height="760" fill="url(#bg)"/>
+  <rect width="1080" height="760" fill="url(#dots)"/>
+  <rect width="1080" height="760" fill="url(#centerGlow)"/>
+
+  <!-- Icon-position glows (Ekanta at x=320, Applications at x=760, y=380) -->
+  <ellipse cx="320" cy="380" rx="100" ry="90" fill="url(#leftGlow)"/>
+  <ellipse cx="760" cy="380" rx="100" ry="90" fill="url(#rightGlow)"/>
+
+  <!-- Drag arrow -->
+  <path d="M 410 388 Q 540 440 680 388"
+        fill="none" stroke="#7c6af7" stroke-width="3"
+        stroke-dasharray="14 9" stroke-opacity="0.65"
+        marker-end="url(#arr)"/>
+
+  <!-- ── CAT ─────────────────────────────────────────────────────── -->
+  <g filter="url(#shadow)">
+
+    <!-- Tail behind body (draw first) -->
+    <path d="M 466 462 Q 360 490 338 408 Q 318 328 396 304"
+          fill="none" stroke="#555880" stroke-width="34" stroke-linecap="round"/>
+    <path d="M 466 462 Q 360 490 338 408 Q 318 328 396 304"
+          fill="none" stroke="#6366a8" stroke-width="22" stroke-linecap="round"/>
+    <circle cx="396" cy="304" r="19" fill="#6e72b8"/>
+
+    <!-- Body -->
+    <ellipse cx="530" cy="360" rx="88" ry="100" fill="#555880"/>
+    <!-- Belly -->
+    <ellipse cx="530" cy="375" rx="52" ry="70" fill="#6e72a8" opacity="0.45"/>
+
+    <!-- Left front paw (tucked, sitting) -->
+    <ellipse cx="478" cy="452" rx="38" ry="22" fill="#555880"/>
+    <circle cx="464" cy="460" r="8" fill="#4a4d78"/>
+    <circle cx="479" cy="464" r="8" fill="#4a4d78"/>
+    <circle cx="494" cy="460" r="8" fill="#4a4d78"/>
+
+    <!-- Right arm reaching toward Applications -->
+    <path d="M 615 338 Q 680 322 730 348"
+          fill="none" stroke="#555880" stroke-width="38" stroke-linecap="round"/>
+    <!-- Right paw -->
+    <ellipse cx="730" cy="352" rx="42" ry="25" fill="#555880"/>
+    <circle cx="716" cy="363" r="9" fill="#4a4d78"/>
+    <circle cx="731" cy="368" r="9" fill="#4a4d78"/>
+    <circle cx="746" cy="363" r="9" fill="#4a4d78"/>
+    <!-- Paw pad lines -->
+    <line x1="716" y1="355" x2="716" y2="372" stroke="#3d3f68" stroke-width="1.5" opacity="0.5"/>
+    <line x1="731" y1="358" x2="731" y2="377" stroke="#3d3f68" stroke-width="1.5" opacity="0.5"/>
+    <line x1="746" y1="355" x2="746" y2="372" stroke="#3d3f68" stroke-width="1.5" opacity="0.5"/>
+
+    <!-- Head -->
+    <circle cx="528" cy="218" r="84" fill="#6366a8"/>
+
+    <!-- Left ear outer -->
+    <path d="M 464 162 L 438 86 L 508 148 Z" fill="#6366a8"/>
+    <!-- Left ear inner -->
+    <path d="M 467 159 L 448 100 L 504 148 Z" fill="#d888b0" opacity="0.75"/>
+
+    <!-- Right ear outer -->
+    <path d="M 592 162 L 618 86 L 548 148 Z" fill="#6366a8"/>
+    <!-- Right ear inner -->
+    <path d="M 589 159 L 608 100 L 552 148 Z" fill="#d888b0" opacity="0.75"/>
+
+    <!-- Face highlight -->
+    <ellipse cx="528" cy="228" rx="64" ry="60" fill="#7476c0" opacity="0.25"/>
+
+    <!-- Eyes: left -->
+    <circle cx="500" cy="205" r="24" fill="#eeeef8"/>
+    <circle cx="500" cy="205" r="18" fill="#7c6af7"/>
+    <ellipse cx="502" cy="207" rx="10" ry="14" fill="#1a1a2e"/>
+    <circle cx="506" cy="198" r="5" fill="white" opacity="0.9"/>
+    <circle cx="496" cy="214" r="2.5" fill="white" opacity="0.5"/>
+
+    <!-- Eyes: right -->
+    <circle cx="556" cy="205" r="24" fill="#eeeef8"/>
+    <circle cx="556" cy="205" r="18" fill="#7c6af7"/>
+    <ellipse cx="558" cy="207" rx="10" ry="14" fill="#1a1a2e"/>
+    <circle cx="562" cy="198" r="5" fill="white" opacity="0.9"/>
+    <circle cx="552" cy="214" r="2.5" fill="white" opacity="0.5"/>
+
+    <!-- Nose -->
+    <path d="M 523 245 L 528 253 L 533 245 Z" fill="#d888b0"/>
+    <!-- Mouth -->
+    <line x1="528" y1="253" x2="528" y2="257" stroke="#d888b0" stroke-width="2.2"/>
+    <path d="M 518 259 Q 528 268 538 259" fill="none" stroke="#d888b0" stroke-width="2.2" stroke-linecap="round"/>
+
+    <!-- Whiskers left -->
+    <line x1="492" y1="248" x2="426" y2="238" stroke="white" stroke-width="1.8" opacity="0.28"/>
+    <line x1="492" y1="255" x2="426" y2="258" stroke="white" stroke-width="1.8" opacity="0.28"/>
+    <line x1="492" y1="263" x2="430" y2="272" stroke="white" stroke-width="1.8" opacity="0.28"/>
+
+    <!-- Whiskers right -->
+    <line x1="564" y1="248" x2="630" y2="238" stroke="white" stroke-width="1.8" opacity="0.28"/>
+    <line x1="564" y1="255" x2="630" y2="258" stroke="white" stroke-width="1.8" opacity="0.28"/>
+    <line x1="564" y1="263" x2="626" y2="272" stroke="white" stroke-width="1.8" opacity="0.28"/>
+
+  </g>
+
+  <!-- Instruction text -->
+  <text x="540" y="548"
+        text-anchor="middle"
+        font-family="-apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif"
+        font-size="23" font-weight="500" letter-spacing="0.4"
+        fill="#7070a0">Drag Ekanta to Applications to install</text>
+
+</svg>
