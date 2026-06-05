@@ -5,6 +5,16 @@ const crypto   = require('crypto');
 const { execFile } = require('child_process');
 
 // Enable WebGPU with Metal backend on macOS
+app.setName("TeleTrex Ekanta")
+
+app.setAboutPanelOptions({
+  applicationName: 'TeleTrex Ekanta',
+  applicationVersion: '1.0.0',
+  copyright: '© 2026 Louis Roehrs',
+  credits: 'TeleTrex',
+  website: 'https://teletrex.com',
+});
+
 app.commandLine.appendSwitch('enable-unsafe-webgpu');
 app.commandLine.appendSwitch('enable-features', 'WebGPU,WebGPUDeveloperFeatures');
 app.commandLine.appendSwitch('use-angle', 'metal');
