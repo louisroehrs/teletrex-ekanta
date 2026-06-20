@@ -15,9 +15,14 @@ app.setAboutPanelOptions({
   website: 'https://teletrex.com',
 });
 
+// Electron (unlike Chrome) does not expose navigator.gpu by default — these two
+// switches turn WebGPU on. WebGPUDeveloperFeatures unlocks the subgroup support
+// onnxruntime-web's FlashAttention shader needs.
 app.commandLine.appendSwitch('enable-unsafe-webgpu');
 app.commandLine.appendSwitch('enable-features', 'WebGPU,WebGPUDeveloperFeatures');
-app.commandLine.appendSwitch('use-angle', 'metal');
+// NOTE: deliberately NOT enabling WebGPUExperimentalFeatures or
+// `enable-dawn-features=allow_unsafe_apis` — those route Dawn through
+// experimental kernels suspected of corrupting Gemma 4 generation.
 app.commandLine.appendSwitch('enable-gpu-rasterization');
 
 const SERVER_PORT = 42069;

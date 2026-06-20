@@ -1,0 +1,167 @@
+FROM ubuntu:22.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV TZ=UTC
+
+# ── System dependencies ───────────────────────────────────────────────────────
+RUN apt-get update && apt-get install -y \
+    build-essential git git-lfs cmake ninja-build \
+    python3.11 python3.11-dev python3.11-venv python3-pip \
+    curl wget unzip pkg-config \
+    llvm-15 llvm-15-dev clang-15 \
+    libssl-dev zlib1g-dev libtinfo-dev zlib1g-dev libedit-dev libxml2-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Use python3.11 as default
+RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.11 1 \
+ && update-alternatives --install /usr/bin/python  python  /usr/bin/python3.11 1
+
+# ── Python packages ────────────────────────────────────────────────────────────
+RUN pip install --upgrade pip && \
+    pip install numpy==1.26.4 psutil tqdm sentencepiece ml-dtypes \
+                huggingface_hub hf_transfer typing_extensions
+
+# ── Clone mlc-llm (recursive: we need the pinned TVM submodule) ───────────────
+WORKDIR /build
+RUN git clone --recursive https://github.com/mlc-ai/mlc-llm.git
+
+WORKDIR /build/mlc-llm
+# Check out the PR head directly (a self-consistent snapshot) rather than merging
+# into a newer main — merging conflicts and silently drops the Gemma 4 code.
+RUN git fetch origin pull/3485/head:gemma4-pr && \
+    git checkout gemma4-pr && \
+    git submodule update --init --recursive
+
+# Hard-fail the build if Gemma 4 didn't register (catch it here, not at runtime)
+RUN grep -rl "gemma4" python/mlc_llm/model/ | head && \
+    test -d python/mlc_llm/model/gemma4 || (echo "ERROR: gemma4 model dir missing from PR checkout" && exit 1)
+
+# ── Build TVM from the pinned submodule commit (full build, Relax included) ───
+# TVM and the mlc_llm Python package now come from the SAME checkout → no drift.
+# We build only TVM, not the mlc-llm C++ runtime (not needed for compilation).
+WORKDIR /build/mlc-llm/3rdparty/tvm
+RUN mkdir -p build && printf '%s\n' \
+    'set(CMAKE_BUILD_TYPE RelWithDebInfo)' \
+    'set(USE_LLVM "/usr/bin/llvm-config-15")' \
+    'set(USE_CUDA OFF)' \
+    'set(USE_OPENCL OFF)' \
+    'set(USE_VULKAN OFF)' \
+    'set(USE_METAL OFF)' \
+    'set(USE_LIBBACKTRACE OFF)' \
+    'set(BACKTRACE_SUPPORT OFF)' \
+    'set(HIDE_PRIVATE_SYMBOLS OFF)' \
+    > build/config.cmake && \
+    cd build && cmake .. -G Ninja && cmake --build . --parallel $(nproc)
+
+# Use TVM's Python bindings directly via env vars (no pip install needed).
+# TVM_LIBRARY_PATH tells libinfo where the .so files we just built live.
+ENV TVM_LIBRARY_PATH="/build/mlc-llm/3rdparty/tvm/build"
+ENV PYTHONPATH="/build/mlc-llm/3rdparty/tvm/python:${PYTHONPATH:-}"
+ENV LD_LIBRARY_PATH="/build/mlc-llm/3rdparty/tvm/build:${LD_LIBRARY_PATH:-}"
+
+# Install any pure-Python deps TVM's bindings need at import time
+RUN pip install attrs cloudpickle decorator pytest scipy
+
+# Weight loader reads HF safetensors via safetensors.torch (needs torch).
+# CPU-only torch — we only use it to load tensors, never to run a model.
+RUN pip install safetensors && \
+    pip install torch --index-url https://download.pytorch.org/whl/cpu
+
+# TVM now depends on a separate tvm_ffi package (its own sub-submodule)
+RUN pip install /build/mlc-llm/3rdparty/tvm/3rdparty/tvm-ffi
+
+# Verify TVM + Relax compiler is fully present (no missing-symbol surprises)
+RUN python -c "import tvm; from tvm import relax, topi; from tvm.contrib import tar; \
+    from tvm.relax.transform import LegalizeOps; print('TVM', tvm.__version__, 'full build OK')"
+
+# ── mlc-llm Python package + Gemma 4 PR #3485 ────────────────────────────────
+# `python -m mlc_llm` runs __init__.py, which imports `serve` — serve needs the
+# mlc-llm C++ runtime we deliberately don't build. Make that import optional;
+# convert_weight / gen_config / compile don't touch serve.
+WORKDIR /build/mlc-llm
+RUN python3 - <<'PYEOF'
+import pathlib
+p = pathlib.Path("python/mlc_llm/__init__.py")
+s = p.read_text()
+s = s.replace("from . import protocol, serve", "from . import protocol")
+s = s.replace(
+    "from .serve import AsyncMLCEngine, MLCEngine",
+    "try:\n    from . import serve\n    from .serve import AsyncMLCEngine, MLCEngine\nexcept Exception:\n    pass",
+)
+p.write_text(s)
+print("patched __init__.py")
+PYEOF
+
+# Bugfix for draft PR #3485: Gemma 4's hybrid attention emits per-layer rope
+# functions all named "fused_rope". Sliding vs full layers differ in theta/
+# rotary_dim, so the content-distinct functions collide on that global symbol
+# at module finalize. Give each distinct rope config a unique global symbol;
+# layers sharing a config still dedupe.
+RUN python3 - <<'PYEOF'
+import pathlib
+p = pathlib.Path("python/mlc_llm/model/gemma4/gemma4_model.py")
+s = p.read_text()
+
+# The PR builds a per-layer rope primfunc via llama_rope_with_position_map and
+# calls it with `apply_rope` as a runtime scalar arg. Two problems:
+#   (a) All layers' primfuncs share the global symbol "fused_rope", but hybrid
+#       attention makes them content-distinct (different theta/rotary_dim) → the
+#       symbols collide at module finalize.
+#   (b) Passing `apply_rope` as a scalar in the call_tir args tuple is rejected
+#       by this TVM's well-formedness check (TIR scalar params aren't regular
+#       args). Gemma 4 always applies rope, so we bind apply_rope=1 into the
+#       primfunc via specialize() and drop it from the call entirely.
+#
+# Fix both by replacing the `apply_rope = ...` line with specialize + a unique
+# global_symbol, and removing apply_rope from the tensor_ir_op call.
+anchor = '        apply_rope = tirx.IntImm("int64", 1)'
+assert anchor in s, "rope anchor not found — PR layout changed"
+inject = (
+    "        # Bind the rope-enable flag to 1 (Gemma 4 always applies rope) so\n"
+    "        # it is not a runtime scalar arg, and give each distinct rope config\n"
+    "        # a unique global symbol so per-layer primfuncs do not collide.\n"
+    "        _ar = rotary.params[-1]\n"
+    "        rotary = rotary.specialize({_ar: tirx.IntImm(_ar.dtype, 1)})\n"
+    "        rotary = rotary.with_attr(\n"
+    '            "global_symbol", f"fused_rope_{int(self.rope_theta)}_{rotary_dim}"\n'
+    "        )"
+)
+s = s.replace(anchor, inject, 1)
+
+# Drop the scalar flag from the call args so the call matches the specialized
+# 5-parameter primfunc. (The duplicate-symbol collision is already handled by
+# the unique global_symbol set via with_attr above; the tensor_ir_op name hint
+# does not need to be unique — TVM auto-dedupes GlobalVar names.)
+arg_anchor = "args=[fused_qkv, cache_positions, apply_rope]"
+assert arg_anchor in s, "call args anchor not found — PR layout changed"
+s = s.replace(arg_anchor, "args=[fused_qkv, cache_positions]", 1)
+
+# Verify the scalar variable is gone (the `_apply_rope` *method* name legitimately
+# remains, so check for the specific scalar usages rather than the bare substring).
+assert "apply_rope =" not in s, "scalar assignment still present — patch incomplete"
+assert "cache_positions, apply_rope" not in s, "scalar still in call args — patch incomplete"
+p.write_text(s)
+print("patched gemma4_model.py: specialized rope, removed runtime apply_rope")
+PYEOF
+
+# Put the mlc_llm Python package on the path (no compilation needed)
+ENV PYTHONPATH="/build/mlc-llm/python:${PYTHONPATH:-}"
+
+# Confirm Gemma 4 model registered from PR #3485 — hard fail if missing
+RUN python -c "from mlc_llm.model import MODELS; ks=sorted(MODELS); \
+    g=[k for k in ks if 'gemma' in k]; print('gemma models:', g); \
+    assert 'gemma4' in MODELS, 'gemma4 NOT registered in MODELS'; print('gemma4 registered OK')"
+
+# ── Emscripten (for WebGPU WASM compilation) ─────────────────────────────────
+WORKDIR /build
+RUN git clone https://github.com/emscripten-core/emsdk.git && \
+    cd emsdk && ./emsdk install latest && ./emsdk activate latest
+ENV PATH="/build/emsdk:/build/emsdk/upstream/emscripten:${PATH}"
+ENV EMSDK="/build/emsdk"
+
+# ── Entrypoint: convert + gen_config + compile ────────────────────────────────
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+WORKDIR /work
+ENTRYPOINT ["/entrypoint.sh"]
