@@ -9,7 +9,7 @@ app.setName("TeleTrex Ekanta")
 
 app.setAboutPanelOptions({
   applicationName: 'TeleTrex Ekanta',
-  applicationVersion: '1.0.0',
+  applicationVersion: '1.1.0',
   copyright: '© 2026 Louis Roehrs',
   credits: 'TeleTrex',
   website: 'https://teletrex.com',
