@@ -22,18 +22,11 @@ const MODELS = [
   { id: 'Qwen3-8B-q4f16_1-MLC',                         name: 'Qwen 3 · 8B',         params: '8B',   vram: 5.3 , tag: 'General',    tagColor: 'tag-green',  desc: 'Best-in-class reasoning at 8B' },
   { id: 'Qwen3.5-9B-q4f16_1-MLC',                       name: 'Qwen 3.5 · 9B',         params: '9B',   vram: 6.4 , tag: 'General',    tagColor: 'tag-green',  desc: 'Bigger and slower than Qwen 3' },
   { id: 'SmolLM2-1.7B-Instruct-q4f16_1-MLC',            name: 'SmolLM2 · 1.7B',       params: '1.7B', vram: 1.1, tag: 'Fast',      tagColor: 'tag-blue',   desc: 'HuggingFace — surprisingly capable small model' },
-  // Gemma 4 — community MLC builds (not yet in WebLLM prebuilt list)
-  // Gemma 4 — official ONNX builds, run via Transformers.js (NOT WebLLM).
-  // These use `transformers` (not `mlcEntry`); loadModel() routes them to the
-  // Transformers.js engine. `repo` is the HF model id; `dtype` selects the ONNX
-  // weight variant (q4f16 = 4-bit weights / fp16 activations, good for WebGPU).
-  { id: 'gemma-4-E2B-it-ONNX', name: 'Gemma 4 · 2B', params: '2B', vram: 2.5, tag: 'Google', tagColor: 'tag-green', desc: 'Google Gemma 4 — 2B effective params (ONNX / Transformers.js)',
-    genConfig: { repetition_penalty: 1.0, top_p: 0.95 },
-    transformers: { repo: 'onnx-community/gemma-4-E2B-it-ONNX', dtype: { embed_tokens: 'q4f16', decoder_model_merged: 'q4f16' }, device: 'webgpu', cls: 'Gemma4ForConditionalGeneration' },
-  },
-  { id: 'gemma-4-E4B-it-ONNX', name: 'Gemma 4 · 4B', params: '4B', vram: 4.0, tag: 'Google', tagColor: 'tag-green', desc: 'Google Gemma 4 — 4B effective params (ONNX / Transformers.js)',
-    genConfig: { repetition_penalty: 1.0, top_p: 0.95 },
-    transformers: { repo: 'onnx-community/gemma-4-E4B-it-ONNX', dtype: { embed_tokens: 'q4f16', decoder_model_merged: 'q4f16' }, device: 'webgpu', cls: 'Gemma4ForConditionalGeneration' },
+  // Gemma 4 — Google's QAT mobile build run via a self-contained WebGPU kernel
+  // module (Gemma4Mobile, vendored in app/vendor/gemma-4-e2b.js). Uses neither
+  // WebLLM nor onnxruntime-web; loadModel() routes it to the gemma4mobile engine.
+  { id: 'gemma-4-E2B-it-mobile', name: 'Gemma 4 · 2B', params: '2B', vram: 2.5, tag: 'Google', tagColor: 'tag-green', desc: 'Google Gemma 4 — 2B QAT, native WebGPU kernels',
+    gemma4mobile: true,
   },
 ];
 
@@ -102,8 +95,8 @@ function setActiveConversation(id) {
 // ---------------------------------------------------------------------------
 // Engine state
 // ---------------------------------------------------------------------------
-let engine           = null;   // WebLLM engine OR a Transformers.js adapter (see makeTransformersEngine)
-let engineKind       = null;   // 'webllm' | 'transformers'
+let engine           = null;   // WebLLM engine OR a Gemma4Mobile adapter (see makeGemma4MobileEngine)
+let engineKind       = null;   // 'webllm' | 'gemma4mobile'
 let loadedModelId    = null;
 let selectedModel    = null;
 let isGenerating     = false;
@@ -115,9 +108,9 @@ let detectedVramGB   = 8; // updated by detectGPU() once system_profiler resolve
 async function refreshCachedModels() {
   if (typeof webllm.hasModelInCache !== 'function') return;
   await Promise.all(MODELS.map(async (m) => {
-    // Transformers.js models are cached by the library under its own keys —
-    // webllm.hasModelInCache doesn't know about them, so skip the check.
-    if (m.transformers) return;
+    // Gemma4Mobile caches weights under its own keys — webllm.hasModelInCache
+    // doesn't know about them, so skip the check.
+    if (m.gemma4mobile) return;
     try {
       const cached = await webllm.hasModelInCache(m.id);
       cached ? cachedModelIds.add(m.id) : cachedModelIds.delete(m.id);
@@ -127,47 +120,29 @@ async function refreshCachedModels() {
 }
 
 // ---------------------------------------------------------------------------
-// Transformers.js engine adapter
+// Gemma4Mobile (native WebGPU kernels) engine adapter
 // ---------------------------------------------------------------------------
-// Wraps a Transformers.js text-generation pipeline in a small object that
-// mirrors the bits of the WebLLM engine we rely on: `.unload()` and a
-// `.generate(opts, onDelta)` streaming method. This lets loadModel/sendMessage
-// treat both engines uniformly via engineKind.
-function makeTransformersEngine({ model, processor, TextStreamer }) {
+// Wraps the vendored Gemma4Mobile model in the same shape the rest of the app
+// expects: `.unload()` plus a `.generate(opts, onDelta, signal)` streaming
+// method. Gemma4Mobile.generate() yields { text } where text is CUMULATIVE, so
+// we diff against what we've already emitted to produce deltas. This engine has
+// no dependency on WebLLM or onnxruntime-web.
+function makeGemma4MobileEngine(model) {
   return {
-    kind: 'transformers',
+    kind: 'gemma4mobile',
     model,
-    processor,
-    async generate({ messages, temperature, maxTokens, top_p, repetition_penalty }, onDelta) {
-      // Gemma 4 is a multimodal conditional-generation model — build inputs via
-      // the processor (text-only here), not the text-generation pipeline.
-      // tokenize:false is essential — without it the template returns token IDs
-      // (default tokenize:true), which then get re-tokenized by processor() →
-      // gibberish. We want the rendered prompt *string* fed to the processor.
-      const prompt = processor.apply_chat_template(messages, {
-        add_generation_prompt: true,
-        tokenize: false,
-        enable_thinking: false,
+    async generate({ messages, maxTokens, signal }, onDelta) {
+      let emitted = '';
+      const stream = model.generate(messages, {
+        maxNewTokens: maxTokens ?? 4096,
+        ...(signal ? { signal } : {}),
       });
-      // Signature is (text, images, audio). Pass null for the image/audio slots
-      // and NO options object — the official Space does this so add_special_tokens
-      // stays true and the leading <bos> is added. Gemma generates gibberish
-      // without <bos>, so do not pass { add_special_tokens: false } here.
-      const inputs = await processor(prompt, null, null);
-      const streamer = new TextStreamer(processor.tokenizer, {
-        skip_prompt: true,
-        skip_special_tokens: true,
-        callback_function: (text) => { if (text) onDelta(text); },
-      });
-      await model.generate({
-        ...inputs,
-        max_new_tokens: maxTokens ?? 1024,
-        do_sample: (temperature ?? 0) > 0,
-        temperature,
-        top_p,
-        repetition_penalty,
-        streamer,
-      });
+      for await (const { text } of stream) {
+        if (text.length > emitted.length) {
+          onDelta(text.slice(emitted.length));
+          emitted = text;
+        }
+      }
     },
     async unload() {
       try { await model.dispose?.(); } catch (_) {}
@@ -177,10 +152,10 @@ function makeTransformersEngine({ model, processor, TextStreamer }) {
 
 // Unified streaming: calls onDelta(textChunk) for each generated piece.
 // Returns { usage } when available (WebLLM only).
-async function runChatStream({ messages, temperature, maxTokens }, onDelta) {
+async function runChatStream({ messages, temperature, maxTokens, signal }, onDelta) {
   const gen = selectedModel?.genConfig ?? {};
-  if (engineKind === 'transformers') {
-    await engine.generate({ messages, temperature, maxTokens, ...gen }, onDelta);
+  if (engineKind === 'gemma4mobile') {
+    await engine.generate({ messages, maxTokens, signal }, onDelta);
     return { usage: null };
   }
   const stream = await engine.chat.completions.create({
@@ -413,32 +388,22 @@ async function loadModel() {
   }
 
   try {
-    if (selectedModel.transformers) {
-      // ── Transformers.js (ONNX) path ──────────────────────────────────────
-      // Gemma 4 ONNX needs the latest Transformers.js (gemma4 support postdates v3)
-      // and its explicit multimodal class, not the text-generation pipeline.
-      const TF = await import('https://esm.run/@huggingface/transformers');
-      const { AutoProcessor, TextStreamer } = TF;
-      const t = selectedModel.transformers;
-      const ModelClass = TF[t.cls];
-      if (!ModelClass) throw new Error(`Transformers.js class not found: ${t.cls}`);
-      const progress_callback = (p) => {
-        const pct = typeof p.progress === 'number' ? Math.round(p.progress) : null;
-        if (pct != null) {
-          progressFill.style.width = `${pct}%`;
-          progressText.textContent = `${(p.file || '').split('/').pop().slice(0, 38)} ${pct}%`;
-        } else if (p.status) {
-          progressText.textContent = String(p.status).slice(0, 40);
-        }
+    if (selectedModel.gemma4mobile) {
+      // ── Gemma4Mobile (native WebGPU kernels) path ────────────────────────
+      // Self-contained vendored module — no WebLLM, no onnxruntime-web. Loads
+      // google/gemma-4-E2B-it-qat-mobile-transformers via Gemma4Mobile.load().
+      const { Gemma4Mobile } = await import('./vendor/gemma-4-e2b.js');
+      const onProgress = (e) => {
+        const frac = typeof e.fraction === 'number' ? e.fraction : null;
+        if (frac != null) progressFill.style.width = `${Math.round(frac * 100)}%`;
+        const label = { init: 'Requesting WebGPU device…', tokenizer: 'Loading tokenizer…', weights: 'Downloading weights…', ready: 'Ready.' }[e.status] ?? e.status ?? '';
+        if (label) progressText.textContent = label;
       };
-      const processor = await AutoProcessor.from_pretrained(t.repo, { progress_callback });
-      const model = await ModelClass.from_pretrained(t.repo, {
-        dtype: t.dtype ?? 'q4f16',
-        device: t.device ?? 'webgpu',
-        progress_callback,
-      });
-      engine = makeTransformersEngine({ model, processor, TextStreamer });
-      engineKind = 'transformers';
+      const model = await Gemma4Mobile.load(null, { onProgress });
+      progressText.textContent = 'Warming up kernels…';
+      await model.warmup();
+      engine = makeGemma4MobileEngine(model);
+      engineKind = 'gemma4mobile';
     } else {
       // ── WebLLM (MLC) path ────────────────────────────────────────────────
       const engineConfig = {
