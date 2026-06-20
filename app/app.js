@@ -22,6 +22,19 @@ const MODELS = [
   { id: 'Qwen3-8B-q4f16_1-MLC',                         name: 'Qwen 3 · 8B',         params: '8B',   vram: 5.3 , tag: 'General',    tagColor: 'tag-green',  desc: 'Best-in-class reasoning at 8B' },
   { id: 'Qwen3.5-9B-q4f16_1-MLC',                       name: 'Qwen 3.5 · 9B',         params: '9B',   vram: 6.4 , tag: 'General',    tagColor: 'tag-green',  desc: 'Bigger and slower than Qwen 3' },
   { id: 'SmolLM2-1.7B-Instruct-q4f16_1-MLC',            name: 'SmolLM2 · 1.7B',       params: '1.7B', vram: 1.1, tag: 'Fast',      tagColor: 'tag-blue',   desc: 'HuggingFace — surprisingly capable small model' },
+  // Gemma 4 — community MLC builds (not yet in WebLLM prebuilt list)
+  // Gemma 4 — official ONNX builds, run via Transformers.js (NOT WebLLM).
+  // These use `transformers` (not `mlcEntry`); loadModel() routes them to the
+  // Transformers.js engine. `repo` is the HF model id; `dtype` selects the ONNX
+  // weight variant (q4f16 = 4-bit weights / fp16 activations, good for WebGPU).
+  { id: 'gemma-4-E2B-it-ONNX', name: 'Gemma 4 · 2B', params: '2B', vram: 2.5, tag: 'Google', tagColor: 'tag-green', desc: 'Google Gemma 4 — 2B effective params (ONNX / Transformers.js)',
+    genConfig: { repetition_penalty: 1.0, top_p: 0.95 },
+    transformers: { repo: 'onnx-community/gemma-4-E2B-it-ONNX', dtype: { embed_tokens: 'q4f16', decoder_model_merged: 'q4f16' }, device: 'webgpu', cls: 'Gemma4ForConditionalGeneration' },
+  },
+  { id: 'gemma-4-E4B-it-ONNX', name: 'Gemma 4 · 4B', params: '4B', vram: 4.0, tag: 'Google', tagColor: 'tag-green', desc: 'Google Gemma 4 — 4B effective params (ONNX / Transformers.js)',
+    genConfig: { repetition_penalty: 1.0, top_p: 0.95 },
+    transformers: { repo: 'onnx-community/gemma-4-E4B-it-ONNX', dtype: { embed_tokens: 'q4f16', decoder_model_merged: 'q4f16' }, device: 'webgpu', cls: 'Gemma4ForConditionalGeneration' },
+  },
 ];
 
 // ---------------------------------------------------------------------------
@@ -89,7 +102,8 @@ function setActiveConversation(id) {
 // ---------------------------------------------------------------------------
 // Engine state
 // ---------------------------------------------------------------------------
-let engine           = null;
+let engine           = null;   // WebLLM engine OR a Transformers.js adapter (see makeTransformersEngine)
+let engineKind       = null;   // 'webllm' | 'transformers'
 let loadedModelId    = null;
 let selectedModel    = null;
 let isGenerating     = false;
@@ -101,12 +115,84 @@ let detectedVramGB   = 8; // updated by detectGPU() once system_profiler resolve
 async function refreshCachedModels() {
   if (typeof webllm.hasModelInCache !== 'function') return;
   await Promise.all(MODELS.map(async (m) => {
+    // Transformers.js models are cached by the library under its own keys —
+    // webllm.hasModelInCache doesn't know about them, so skip the check.
+    if (m.transformers) return;
     try {
       const cached = await webllm.hasModelInCache(m.id);
       cached ? cachedModelIds.add(m.id) : cachedModelIds.delete(m.id);
     } catch {}
   }));
   MODELS.forEach(m => updateModelCardStatus(m.id));
+}
+
+// ---------------------------------------------------------------------------
+// Transformers.js engine adapter
+// ---------------------------------------------------------------------------
+// Wraps a Transformers.js text-generation pipeline in a small object that
+// mirrors the bits of the WebLLM engine we rely on: `.unload()` and a
+// `.generate(opts, onDelta)` streaming method. This lets loadModel/sendMessage
+// treat both engines uniformly via engineKind.
+function makeTransformersEngine({ model, processor, TextStreamer }) {
+  return {
+    kind: 'transformers',
+    model,
+    processor,
+    async generate({ messages, temperature, maxTokens, top_p, repetition_penalty }, onDelta) {
+      // Gemma 4 is a multimodal conditional-generation model — build inputs via
+      // the processor (text-only here), not the text-generation pipeline.
+      // tokenize:false is essential — without it the template returns token IDs
+      // (default tokenize:true), which then get re-tokenized by processor() →
+      // gibberish. We want the rendered prompt *string* fed to the processor.
+      const prompt = processor.apply_chat_template(messages, {
+        add_generation_prompt: true,
+        tokenize: false,
+        enable_thinking: false,
+      });
+      // Signature is (text, images, audio). Pass null for the image/audio slots
+      // and NO options object — the official Space does this so add_special_tokens
+      // stays true and the leading <bos> is added. Gemma generates gibberish
+      // without <bos>, so do not pass { add_special_tokens: false } here.
+      const inputs = await processor(prompt, null, null);
+      const streamer = new TextStreamer(processor.tokenizer, {
+        skip_prompt: true,
+        skip_special_tokens: true,
+        callback_function: (text) => { if (text) onDelta(text); },
+      });
+      await model.generate({
+        ...inputs,
+        max_new_tokens: maxTokens ?? 1024,
+        do_sample: (temperature ?? 0) > 0,
+        temperature,
+        top_p,
+        repetition_penalty,
+        streamer,
+      });
+    },
+    async unload() {
+      try { await model.dispose?.(); } catch (_) {}
+    },
+  };
+}
+
+// Unified streaming: calls onDelta(textChunk) for each generated piece.
+// Returns { usage } when available (WebLLM only).
+async function runChatStream({ messages, temperature, maxTokens }, onDelta) {
+  const gen = selectedModel?.genConfig ?? {};
+  if (engineKind === 'transformers') {
+    await engine.generate({ messages, temperature, maxTokens, ...gen }, onDelta);
+    return { usage: null };
+  }
+  const stream = await engine.chat.completions.create({
+    messages, stream: true, temperature, max_tokens: maxTokens, ...gen,
+  });
+  let usage = null;
+  for await (const chunk of stream) {
+    const delta = chunk.choices[0]?.delta?.content ?? '';
+    if (delta) onDelta(delta);
+    if (chunk.usage) usage = chunk.usage;
+  }
+  return { usage };
 }
 
 function updateModelCardStatus(modelId) {
@@ -178,8 +264,12 @@ async function detectGPU() {
       gpuBadge.classList.add('gpu-error');
       return false;
     }
-    const info = await adapter.requestAdapterInfo();
-    const gpuName = info.description || info.vendor || 'GPU';
+    // adapter.requestAdapterInfo() was removed in Chromium ~136 (Electron 35+).
+    // The current API is the synchronous `adapter.info` property; fall back to
+    // the old method for older Chromium just in case.
+    const info = adapter.info
+      ?? (typeof adapter.requestAdapterInfo === 'function' ? await adapter.requestAdapterInfo() : {});
+    const gpuName = info.description || info.vendor || info.architecture || 'GPU';
 
     // Source 1: system_profiler — exact VRAM strings, matched to the WebGPU adapter
     let vramGB = 0;
@@ -316,32 +406,62 @@ async function loadModel() {
     try { await engine.unload(); } catch (_) {}
     const prev = loadedModelId;
     engine = null;
+    engineKind = null;
     loadedModelId = null;
     window.electronAPI?.sendModelStatus({ loaded: false, modelId: null, modelName: null });
     if (prev) updateModelCardStatus(prev);
   }
 
   try {
-    const engineConfig = {
-      initProgressCallback: (report) => {
-        const pct = Math.round((report.progress || 0) * 100);
-        progressFill.style.width = `${pct}%`;
-        progressText.textContent = report.text
-          ? report.text.replace(/\[.*?\]\s*/, '').slice(0, 60)
-          : `${pct}%`;
-      },
-    };
-    if (selectedModel.overrides) {
-      engineConfig.appConfig = {
-        ...webllm.prebuiltAppConfig,
-        model_list: webllm.prebuiltAppConfig.model_list.map(m =>
-          m.model_id === selectedModel.id
+    if (selectedModel.transformers) {
+      // ── Transformers.js (ONNX) path ──────────────────────────────────────
+      // Gemma 4 ONNX needs the latest Transformers.js (gemma4 support postdates v3)
+      // and its explicit multimodal class, not the text-generation pipeline.
+      const TF = await import('https://esm.run/@huggingface/transformers');
+      const { AutoProcessor, TextStreamer } = TF;
+      const t = selectedModel.transformers;
+      const ModelClass = TF[t.cls];
+      if (!ModelClass) throw new Error(`Transformers.js class not found: ${t.cls}`);
+      const progress_callback = (p) => {
+        const pct = typeof p.progress === 'number' ? Math.round(p.progress) : null;
+        if (pct != null) {
+          progressFill.style.width = `${pct}%`;
+          progressText.textContent = `${(p.file || '').split('/').pop().slice(0, 38)} ${pct}%`;
+        } else if (p.status) {
+          progressText.textContent = String(p.status).slice(0, 40);
+        }
+      };
+      const processor = await AutoProcessor.from_pretrained(t.repo, { progress_callback });
+      const model = await ModelClass.from_pretrained(t.repo, {
+        dtype: t.dtype ?? 'q4f16',
+        device: t.device ?? 'webgpu',
+        progress_callback,
+      });
+      engine = makeTransformersEngine({ model, processor, TextStreamer });
+      engineKind = 'transformers';
+    } else {
+      // ── WebLLM (MLC) path ────────────────────────────────────────────────
+      const engineConfig = {
+        initProgressCallback: (report) => {
+          const pct = Math.round((report.progress || 0) * 100);
+          progressFill.style.width = `${pct}%`;
+          progressText.textContent = report.text
+            ? report.text.replace(/\[.*?\]\s*/, '').slice(0, 60)
+            : `${pct}%`;
+        },
+      };
+      if (selectedModel.mlcEntry || selectedModel.overrides) {
+        const patchedList = webllm.prebuiltAppConfig.model_list.map(m =>
+          m.model_id === selectedModel.id && selectedModel.overrides
             ? { ...m, overrides: { ...(m.overrides ?? {}), ...selectedModel.overrides } }
             : m
-        ),
-      };
+        );
+        if (selectedModel.mlcEntry) patchedList.push(selectedModel.mlcEntry);
+        engineConfig.appConfig = { ...webllm.prebuiltAppConfig, model_list: patchedList };
+      }
+      engine = await webllm.CreateMLCEngine(selectedModel.id, engineConfig);
+      engineKind = 'webllm';
     }
-    engine = await webllm.CreateMLCEngine(selectedModel.id, engineConfig);
 
     const prevModelId = loadedModelId;
     loadedModelId = selectedModel.id;
@@ -512,19 +632,14 @@ async function sendMessage() {
   let fullText       = '';
 
   try {
-    const stream = await engine.chat.completions.create({
-      messages: apiMessages,
-      stream: true,
-      temperature: settings.temperature,
-      max_tokens: settings.maxTokens,
-    });
-
-    for await (const chunk of stream) {
-      const delta = chunk.choices[0]?.delta?.content ?? '';
-      fullText += delta;
-      contentEl.innerHTML = renderMarkdown(fullText);
-      scrollToBottom();
-    }
+    await runChatStream(
+      { messages: apiMessages, temperature: settings.temperature, maxTokens: settings.maxTokens },
+      (delta) => {
+        fullText += delta;
+        contentEl.innerHTML = renderMarkdown(fullText);
+        scrollToBottom();
+      },
+    );
 
     conv.messages.push({ role: 'assistant', content: fullText });
     conv.updatedAt = Date.now();
@@ -689,23 +804,16 @@ async function handleServerInference({ requestId, messages, temperature, maxToke
   let completionTokens = 0;
 
   try {
-    const stream = await engine.chat.completions.create({
-      messages,
-      stream: true,
-      temperature,
-      max_tokens: maxTokens,
-    });
-
-    for await (const chunk of stream) {
-      const content = chunk.choices[0]?.delta?.content ?? '';
-      if (content) {
+    const { usage } = await runChatStream(
+      { messages, temperature, maxTokens },
+      (content) => {
         window.electronAPI.sendServerChunk({ requestId, content });
         completionTokens++;
-      }
-      if (chunk.usage) {
-        promptTokens     = chunk.usage.prompt_tokens     ?? promptTokens;
-        completionTokens = chunk.usage.completion_tokens ?? completionTokens;
-      }
+      },
+    );
+    if (usage) {
+      promptTokens     = usage.prompt_tokens     ?? promptTokens;
+      completionTokens = usage.completion_tokens ?? completionTokens;
     }
 
     window.electronAPI.sendServerDone({ requestId, promptTokens, completionTokens });
