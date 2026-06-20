@@ -1,8 +1,8 @@
 {
   "name": "teletrex-ekanta",
   "author": "Louis Roehrs",
-  "version": "1.0.0",
-  "description": "WebGPU-accelerated local LLM chat by TeleTrex",
+  "version": "1.1.0",
+  "description": "WebGPU-accelerated local LLM chat by TeleTrex.",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
